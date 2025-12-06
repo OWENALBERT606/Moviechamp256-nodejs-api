@@ -1,0 +1,372 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// re_BpM46JvH_CaR1rdHpqLoXa2qMQkt2NmgG
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+ id            String    @id @default(cuid())
+  name          String
+  firstName     String
+  lastName      String
+  phone         String    @unique
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  password      String
+  imageUrl      String @default("https://ylhpxhcgr4.ufs.sh/f/ZVlDsNdibGfFLkXm6f8jxEOgRvuoCGdTw7N05shB2kHlF1LU?expires=1760298626027&signature=hmac-sha256%3De5e64a05048cc6fd92c9ca7aabf68cf8a9992143d9f2bce18cfd5e7e30d6e5d4")
+  role          UserRole  @default(USER)
+  status        UserStatus @default(PENDING)
+  accounts      Account[]
+  watchHistory  WatchHistory[]
+  sessions      Session[]
+  resetTokens   PasswordResetToken[]
+  watchEvents     WatchEvent[]
+  downloadEvents  DownloadEvent[]
+  isApproved    Boolean   @default(false)
+  token         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  roleId        String?
+  refreshTokens RefreshToken[]
+}
+
+enum UserRole {
+  SUPER_ADMIN  
+  MANAGER 
+  ADMIN                 
+  USER      
+}
+enum UserStatus {
+  ACTIVE            // normal active account
+  INACTIVE          // default, cannot login
+  PENDING           // awaiting email verification
+  SUSPENDED        // temporarily blocked
+  DEACTIVATED       
+  BANNED             
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   // store only the hash of the raw token
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+
+model ReleaseYear {
+  id        String   @id @default(cuid())
+  value     Int      @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  movies    Movie[]
+}
+
+model Genre {
+  id        String        @id @default(cuid())
+  name      String        @unique
+  slug      String        @unique
+  description String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  movies Movie[]
+}
+
+model VJ {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  bio       String?
+  avatarUrl String @default("https://bj2s07neqw.ufs.sh/f/XcYHxSh8ug4fZOOmuqKUqhIbs1ukZrPcNDtpda8LKC4Txge0")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  movies    Movie[]
+}
+
+// model Movie {
+//   id            String   @id @default(cuid())
+//   title         String
+//   image         String
+//   poster        String
+//   isComingSoon  Boolean  @default(false)
+//   trailerPoster String
+//   rating        Float
+//   vjId          String
+//   vj            VJ @relation(fields: [vjId],references: [id],onDelete: Cascade)
+//   genreId       String
+//   genre         Genre @relation(fields: [genreId],references: [id], onDelete: Cascade)
+//   yearId         String
+//   year          ReleaseYear @relation(fields: [yearId], references: [id], onDelete: Cascade)
+//   viewsCount    BigInt   @default(0)
+//   size          String             
+//   sizeBytes     BigInt?             
+//   length        String         
+//   lengthSeconds Int?                 
+//   description   String
+//   director      String
+//   cast          String[]
+//   watchHistory  WatchHistory[]
+//   trailerUrl    String               
+//   videoUrl      String      
+//   isTrending     Boolean  @default(false)       
+//   createdAt     DateTime @default(now())
+//   updatedAt     DateTime @updatedAt
+
+//   // optional analytics
+//   watchEvents     WatchEvent[]
+//   downloadEvents  DownloadEvent[]
+
+//   @@index([rating])
+// }
+
+model Movie {
+  id            String   @id @default(cuid())
+  title         String
+  slug          String   @unique  // ← Add this
+  image         String
+  poster        String
+  isComingSoon  Boolean  @default(false)
+  trailerPoster String
+  rating        Float
+  vjId          String
+  vj            VJ @relation(fields: [vjId],references: [id],onDelete: Cascade)
+  genreId       String
+  genre         Genre @relation(fields: [genreId],references: [id], onDelete: Cascade)
+  yearId        String
+  year          ReleaseYear @relation(fields: [yearId], references: [id], onDelete: Cascade)
+  viewsCount    BigInt   @default(0)
+  size          String             
+  sizeBytes     BigInt?             
+  length        String         
+  lengthSeconds Int?                 
+  description   String
+  director      String
+  cast          String[]
+  watchHistory  WatchHistory[]
+  trailerUrl    String               
+  videoUrl      String      
+  isTrending    Boolean  @default(false)       
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // optional analytics
+  watchEvents     WatchEvent[]
+  downloadEvents  DownloadEvent[]
+
+  @@index([rating])
+}
+
+
+
+model WatchHistory {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movieId         String
+  movie           Movie    @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  
+  // Progress tracking
+  currentTime     Int      @default(0)  // Current position in seconds
+  duration        Int      @default(0)  // Total duration in seconds
+  progressPercent Float    @default(0)  // Percentage watched (0-100)
+    completed       Boolean  @default(false) // ← Add this field
+
+  
+  // Status  completed       Boolean  @default(false)
+  lastWatchedAt   DateTime @default(now())
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@unique([userId, movieId])
+  @@index([userId, lastWatchedAt])
+}
+
+model Series {
+  id            String   @id @default(cuid())
+  intId         Int      @unique @default(autoincrement())
+
+  title         String
+  image         String
+  poster        String
+  trailerPoster String
+  rating        Float
+  year          Int
+  genre         String
+  vj            String?
+
+  viewsCount    BigInt   @default(0)
+  seasons       Int
+  episodes      Int        // denormalized count for lists
+  description   String
+  director      String
+  cast          String[]
+  watchEvents     WatchEvent[]
+  downloadEvents  DownloadEvent[]
+  trailerUrl    String
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  episodesList  Episode[]
+
+  @@index([year])
+  @@index([genre])
+  @@index([rating])
+}
+
+model Episode {
+  id            String   @id @default(cuid())
+  intId         Int      @unique @default(autoincrement())
+  seriesId      String
+
+  episodeNumber Int
+  title         String
+  length        String        // e.g., "52m"
+  lengthSeconds Int?          // optional normalized seconds
+  description   String
+  videoUrl      String
+  poster        String
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  series Series @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  watchEvents     WatchEvent[]
+  downloadEvents  DownloadEvent[]
+
+  @@unique([seriesId, episodeNumber]) // per-series uniqueness
+  @@index([seriesId])
+}
+
+model Documentary {
+  id            String   @id @default(cuid())
+  intId         Int      @unique @default(autoincrement())
+
+  title         String
+  image         String
+  poster        String
+  trailerPoster String
+  rating        Float
+  year          Int
+  genre         String
+  vj            String?
+
+  viewsCount    BigInt   @default(0)
+  length        String
+  lengthSeconds Int?
+  description   String
+  director      String
+  narrator      String?
+  trailerUrl    String
+  videoUrl      String
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  watchEvents     WatchEvent[]
+  downloadEvents  DownloadEvent[]
+
+  @@index([year])
+  @@index([genre])
+  @@index([rating])
+}
+
+// ----------------------
+// Optional analytics (keep or remove)
+// ----------------------
+
+model WatchEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  movieId   String?
+  seriesId  String?
+  episodeId String?
+  docId     String?
+  seconds   Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  user  User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  movie Movie?        @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  series Series?      @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  episode Episode?    @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  documentary Documentary? @relation(fields: [docId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([movieId])
+  @@index([seriesId])
+  @@index([episodeId])
+  @@index([docId])
+}
+
+model DownloadEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  movieId   String?
+  seriesId  String?
+  episodeId String?
+  docId     String?
+  createdAt DateTime  @default(now())
+
+  user  User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  movie Movie?        @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  series Series?      @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  episode Episode?    @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  documentary Documentary? @relation(fields: [docId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([movieId])
+  @@index([seriesId])
+  @@index([episodeId])
+  @@index([docId])
+}
