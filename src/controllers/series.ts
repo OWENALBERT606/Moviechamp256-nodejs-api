@@ -260,8 +260,11 @@ export async function getSeriesById(req: Request, res: Response) {
 }
 
 /* GET SERIES BY SLUG */
+/* GET SERIES BY SLUG */
 export async function getSeriesBySlug(req: Request, res: Response) {
   const { slug } = req.params;
+
+  console.log("Backend: Looking for series with slug:", slug);
 
   try {
     const series = await db.series.findUnique({
@@ -291,6 +294,11 @@ export async function getSeriesBySlug(req: Request, res: Response) {
         },
         seasons: {
           include: {
+            episodes: {  // ✅ Add this to include episodes
+              orderBy: {
+                episodeNumber: "asc",
+              },
+            },
             _count: {
               select: {
                 episodes: true,
@@ -305,9 +313,14 @@ export async function getSeriesBySlug(req: Request, res: Response) {
     });
 
     if (!series) {
+      console.log("Backend: Series not found with slug:", slug);
       return res.status(404).json({ data: null, error: "Series not found" });
     }
 
+    console.log("Backend: Found series:", series.title);
+    console.log("Backend: Seasons count:", series.seasons?.length);
+    console.log("Backend: Episodes in first season:", series.seasons?.[0]?.episodes?.length);
+    
     return res.status(200).json({ data: serializeBigInt(series), error: null });
   } catch (error) {
     console.error("Error fetching series by slug:", error);
