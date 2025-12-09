@@ -9,6 +9,9 @@ import vjRouter from "./routes/vjs";
 import { watch } from "fs";
 import watchHistoryRouter from "./routes/watchHistory";
 import movieRouter from "./routes/movies";
+import seriesRouter from "./routes/series";
+import seasonRouter from "./routes/seasons";
+import episodeRouter from "./routes/episodes";
 
 const cors = require("cors");
 
@@ -30,6 +33,9 @@ app.use("/api/v1", releaseYearRouter);
 app.use("/api/v1", vjRouter); 
 app.use("/api/v1", watchHistoryRouter); 
 app.use("/api/v1", movieRouter);
+app.use("/api/v1", seriesRouter);
+app.use("/api/v1", seasonRouter);
+app.use("/api/v1", episodeRouter);
 
 
 
