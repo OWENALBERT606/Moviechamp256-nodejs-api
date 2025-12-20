@@ -44,18 +44,18 @@ model User {
   lastName       String
   phone          String               @unique
   email          String               @unique
-  emailVerified  Boolean              @default(false)
+  emailVerified  Boolean              @default(true)
   password       String
   imageUrl       String               @default("https://ylhpxhcgr4.ufs.sh/f/ZVlDsNdibGfFLkXm6f8jxEOgRvuoCGdTw7N05shB2kHlF1LU?expires=1760298626027&signature=hmac-sha256%3De5e64a05048cc6fd92c9ca7aabf68cf8a9992143d9f2bce18cfd5e7e30d6e5d4")
   role           UserRole             @default(USER)
-  status         UserStatus           @default(PENDING)
+  status         UserStatus           @default(ACTIVE)
   accounts       Account[]
   watchHistory   WatchHistory[]
   sessions       Session[]
   resetTokens    PasswordResetToken[]
   watchEvents    WatchEvent[]
   downloadEvents DownloadEvent[]
-  isApproved     Boolean              @default(false)
+  isApproved     Boolean              @default(true)
   token          String?
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt

@@ -1,18 +1,25 @@
-// src/routes/watchHistory.ts
+import { clearWatchHistory, deleteWatchHistoryItem, getContinueWatching, getWatchHistory, getWatchProgress, updateWatchProgress } from "@/controllers/wathchistory";
 import express from "express";
-import {
-  updateWatchProgress,
-  getContinueWatching,
-  getWatchHistory,
-  deleteWatchHistory,
-} from "@/controllers/watchHistory";
+
 
 const watchHistoryRouter = express.Router();
 
-// All routes are public - no authentication required
-watchHistoryRouter.put("/watch-history/:movieId", updateWatchProgress);
-watchHistoryRouter.get("/watch-history/continue-watching", getContinueWatching);
-watchHistoryRouter.get("/watch-history", getWatchHistory);
-watchHistoryRouter.delete("/watch-history/:id", deleteWatchHistory);
+// Get user's watch history
+watchHistoryRouter.get("/watchhistory/:userId", getWatchHistory);
+
+// Get continue watching items
+watchHistoryRouter.get("/watchhistory/:userId/continue", getContinueWatching);
+
+// Get watch progress for specific item
+watchHistoryRouter.get("/watchhistory/progress", getWatchProgress);
+
+// Update watch progress
+watchHistoryRouter.post("/watchhistory", updateWatchProgress);
+
+// Delete specific watch history item
+watchHistoryRouter.delete("/watchhistory/:id", deleteWatchHistoryItem);
+
+// Clear all watch history for user
+watchHistoryRouter.delete("/watchhistory/:userId/clear", clearWatchHistory);
 
 export default watchHistoryRouter;

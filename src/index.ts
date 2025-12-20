@@ -13,6 +13,7 @@ import seriesRouter from "./routes/series";
 import seasonRouter from "./routes/seasons";
 import episodeRouter from "./routes/episodes";
 import myListRouter from "./routes/mylist";
+import searchRouter from "./routes/search";
 
 const cors = require("cors");
 const app = express();
@@ -35,6 +36,10 @@ app.use("/api/v1", seriesRouter);
 app.use("/api/v1", seasonRouter);
 app.use("/api/v1", episodeRouter);
 app.use("/api/v1", myListRouter); 
+app.use("/api/v1", watchHistoryRouter);
+app.use("/api/v1", searchRouter);
+
+
 
 
 
