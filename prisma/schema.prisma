@@ -60,6 +60,7 @@ model User {
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
   roleId         String?
+  myList         MyList?
   refreshTokens  RefreshToken[]
 }
 
@@ -167,35 +168,37 @@ model Movie {
 
   // optional analytics
   watchEvents    WatchEvent[]
+  inLists        MyListMovie[]
   downloadEvents DownloadEvent[]
 
   @@index([rating])
 }
 
 model Series {
-  id            String      @id @default(cuid())
-  slug          String      @unique
+  id            String         @id @default(cuid())
+  slug          String         @unique
   title         String
   poster        String
   trailerPoster String
-  rating        Float       @default(0)
+  rating        Float          @default(0)
   vjId          String
-  vj            VJ          @relation(fields: [vjId], references: [id])
+  vj            VJ             @relation(fields: [vjId], references: [id])
   genreId       String
-  genre         Genre       @relation(fields: [genreId], references: [id])
+  genre         Genre          @relation(fields: [genreId], references: [id])
   yearId        String
-  year          ReleaseYear @relation(fields: [yearId], references: [id])
-  viewsCount    BigInt      @default(0)
-  totalSeasons  Int         @default(0)
-  totalEpisodes Int         @default(0)
-  description   String      @db.Text
+  year          ReleaseYear    @relation(fields: [yearId], references: [id])
+  viewsCount    BigInt         @default(0)
+  totalSeasons  Int            @default(0)
+  totalEpisodes Int            @default(0)
+  description   String         @db.Text
   director      String?
   cast          String[]
+  inLists       MyListSeries[]
   trailerUrl    String?
-  isTrending    Boolean     @default(false)
-  isComingSoon  Boolean     @default(false)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  isTrending    Boolean        @default(false)
+  isComingSoon  Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   // Relations
   seasons       Season[]
@@ -370,4 +373,45 @@ model DownloadEvent {
   @@index([seriesId])
   @@index([episodeId])
   @@index([docId])
+}
+
+model MyList {
+  id     String @id @default(cuid())
+  userId String @unique // ✅ One list per user
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // ✅ Many-to-many relationships
+  movies MyListMovie[] // List has many movies
+  series MyListSeries[] // List has many series
+
+  @@index([userId])
+}
+
+model MyListMovie {
+  id      String   @id @default(cuid())
+  listId  String
+  list    MyList   @relation(fields: [listId], references: [id], onDelete: Cascade)
+  movieId String
+  movie   Movie    @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  addedAt DateTime @default(now())
+
+  @@unique([listId, movieId]) // ✅ Prevent duplicate movies in same list
+  @@index([listId])
+  @@index([movieId])
+}
+
+model MyListSeries {
+  id       String   @id @default(cuid())
+  listId   String
+  list     MyList   @relation(fields: [listId], references: [id], onDelete: Cascade)
+  seriesId String
+  series   Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  addedAt  DateTime @default(now())
+
+  @@unique([listId, seriesId]) // ✅ Prevent duplicate series in same list
+  @@index([listId])
+  @@index([seriesId])
 }
