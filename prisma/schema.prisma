@@ -62,6 +62,10 @@ model User {
   roleId         String?
   myList         MyList?
   refreshTokens  RefreshToken[]
+   subscriptions Subscription[]
+  payments      Payment[]
+  currentPlan   SubscriptionPlan?
+  planExpiresAt DateTime?
 }
 
 enum UserRole {
@@ -146,6 +150,7 @@ model Movie {
   trailerPoster String
   rating        Float
   vjId          String
+  downloadUrl  String?
   vj            VJ             @relation(fields: [vjId], references: [id], onDelete: Cascade)
   genreId       String
   genre         Genre          @relation(fields: [genreId], references: [id], onDelete: Cascade)
@@ -254,7 +259,7 @@ model Episode {
   watchHistory  WatchHistory[]
   WatchEvent    WatchEvent[]
   DownloadEvent DownloadEvent[]
-
+  downloadUrl  String?
   @@unique([seasonId, episodeNumber])
   @@index([seasonId])
   @@index([episodeNumber])
@@ -414,4 +419,99 @@ model MyListSeries {
   @@unique([listId, seriesId]) // ✅ Prevent duplicate series in same list
   @@index([listId])
   @@index([seriesId])
+}
+
+
+// Add to existing schema.prisma
+
+enum SubscriptionPlan {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  SEMI_ANNUAL
+  ANNUAL
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  PENDING
+  FAILED
+}
+
+enum PaymentMethod {
+  MOBILE_MONEY    // MTN, Airtel
+  BANK_CARD       // Visa, Mastercard
+  PAYPAL
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+model Subscription {
+  id        String             @id @default(cuid())
+  userId    String
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  plan      SubscriptionPlan
+  status    SubscriptionStatus @default(PENDING)
+  
+  startDate DateTime?
+  endDate   DateTime?
+  
+  amount    Float              // Amount paid in UGX
+  currency  String             @default("UGX")
+  
+  autoRenew Boolean            @default(false)
+  
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  cancelledAt DateTime?
+  
+  payments  Payment[]
+  
+  @@index([userId])
+  @@index([status])
+  @@index([endDate])
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+  
+  amount         Float
+  currency       String        @default("UGX")
+  
+  paymentMethod  PaymentMethod
+  status         PaymentStatus @default(PENDING)
+  
+  // Payment gateway details
+  transactionId  String?       @unique
+  phoneNumber    String?       // For mobile money
+  cardLast4      String?       // For card payments
+  
+  // Gateway response
+  gatewayResponse Json?
+  
+  failureReason  String?
+  
+  paidAt         DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  
+  @@index([userId])
+  @@index([status])
+  @@index([transactionId])
+  @@index([createdAt])
 }

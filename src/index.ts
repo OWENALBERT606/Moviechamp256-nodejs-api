@@ -14,6 +14,8 @@ import seasonRouter from "./routes/seasons";
 import episodeRouter from "./routes/episodes";
 import myListRouter from "./routes/mylist";
 import searchRouter from "./routes/search";
+import paymentRouter from "./routes/payments";
+import userxRouter from "./routes/usersx";
 
 const cors = require("cors");
 const app = express();
@@ -38,6 +40,10 @@ app.use("/api/v1", episodeRouter);
 app.use("/api/v1", myListRouter); 
 app.use("/api/v1", watchHistoryRouter);
 app.use("/api/v1", searchRouter);
+app.use("/api/v1", paymentRouter);
+app.use("/api/v1", userxRouter);
+
+
 
 
 
