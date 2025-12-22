@@ -31,114 +31,6 @@ const isValidStatus = (v: any): v is UserStatus =>
 const makeSixDigitToken = () =>
   String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
 
-/* ======================
-   CREATE USER
-====================== */
-// export async function createUser(req: Request, res: Response) {
-//   const {
-//     email,
-//     imageUrl, // optional override (model has default)
-//     phone,
-//     password,
-//     firstName,
-//     lastName,
-//     role,
-//     status, // optional, defaults to PENDING
-//   } = req.body as {
-//     email: string;
-//     phone: string;
-//     password: string;
-//     firstName: string;
-//     lastName: string;
-//     imageUrl?: string;
-//     role?: UserRole | string;
-//     status?: UserStatus | string;
-//   };
-
-//   try {
-//     if (!email || !phone || !password || !firstName || !lastName) {
-//       return res.status(400).json({ data: null, error: "Missing required fields." });
-//     }
-
-//     const emailNorm = email.trim().toLowerCase();
-//     const phoneNorm = phone.trim();
-
-//     // Unique checks
-//     const existingUser = await db.user.findFirst({
-//       where: { OR: [{ email: emailNorm }, { phone: phoneNorm }] },
-//       select: { id: true },
-//     });
-//     if (existingUser) {
-//       return res
-//         .status(409)
-//         .json({ data: null, error: "User with this email or phone already exists" });
-//     }
-
-//     const roleValue: UserRole = isValidRole(role) ? (role as UserRole) : UserRole.USER;
-//     const statusValue: UserStatus = isValidStatus(status) ? (status as UserStatus) : UserStatus.PENDING;
-
-//     const hashedPassword = await bcrypt.hash(password, 12);
-//     const token = makeSixDigitToken(); // <-- generate and store
-
-//     const newUser = await db.user.create({
-//       data: {
-//         email: emailNorm,
-//         phone: phoneNorm,
-//         firstName,
-//         lastName,
-//         name: `${firstName} ${lastName}`.trim(),
-//         imageUrl, // let Prisma use default if undefined
-//         password: hashedPassword,
-//         role: roleValue,
-//         status: statusValue,
-//         emailVerified: false,
-//         isApproved: false,
-//         token, // <-- save 6-digit token
-//       },
-//       select: {
-//         id: true,
-//         firstName: true,
-//         lastName: true,
-//         name: true,
-//         email: true,
-//         phone: true,
-//         imageUrl: true,
-//         role: true,
-//         status: true,
-//         token: true, // you may omit sending this to client if sensitive
-//         createdAt: true,
-//         updatedAt: true,
-//       },
-//     });
-//     // const accountNumber = await generateUniqueAccountNumber(tx);
-//       await db.wallet.upsert({
-//         where: { userId: newUser.id },     // requires a UNIQUE constraint on Wallet.userId
-//         update: {},                        // nothing to update on retries
-//         create: {
-//           userId: newUser.id,
-//           accountNumber:generateAccountNumber(),
-//           balance: 0,
-//           bankFee: 30,
-//           transactionFee: 10,
-//           feeAtBank: 10,
-//           totalFees: 30 + 10 + 10,
-//           netAssetValue: 0 - (30 + 10 + 10),
-//         },
-//       });
-
-
-//     await sendVerificationCodeResend({
-//   to: newUser.email,
-//   name: newUser.firstName ?? newUser.name ?? "there",
-//   code: token, // your 6-digit token saved on user
-// });
-
-//     return res.status(201).json({ data: newUser, error: null });
-//   } catch (error) {
-//     console.error("Error creating user:", error);
-//     return res.status(500).json({ data: null, error: "Something went wrong" });
-//   }
-// }
 
 export async function createUser(req: Request, res: Response) {
   const {
@@ -167,10 +59,18 @@ export async function createUser(req: Request, res: Response) {
       return res.status(400).json({ data: null, error: "Missing required fields." });
     }
 
+    // ✅ Password length validation (minimum 6 characters)
+if (password.length < 6) {
+  return res.status(400).json({ 
+    data: null, 
+    error: "Password must be at least 6 characters long." 
+  });
+}
+
     const emailNorm = email.trim().toLowerCase();
     const phoneNorm = phone.trim();
     const roleValue: UserRole = isValidRole(role) ? (role as UserRole) : UserRole.USER;
-    const statusValue: UserStatus = isValidStatus(status) ? (status as UserStatus) : UserStatus.PENDING;
+    const statusValue: UserStatus = isValidStatus(status) ? (status as UserStatus) : UserStatus.ACTIVE;
 
     // Pre-check (optional but gives nicer error than catching P2002)
     const existing = await db.user.findFirst({
@@ -187,11 +87,11 @@ export async function createUser(req: Request, res: Response) {
     const verificationCode = makeSixDigitToken();
 
     // Defaults for the new wallet
-    const bankFee = 30;
-    const transactionFee = 10;
-    const feeAtBank = 10;
-    const totalFees = bankFee + transactionFee + feeAtBank;
-    const netAssetValue = 0 - totalFees;
+    // const bankFee = 30;
+    // const transactionFee = 10;
+    // const feeAtBank = 10;
+    // const totalFees = bankFee + transactionFee + feeAtBank;
+    // const netAssetValue = 0 - totalFees;
 
     // Retry whole transaction a couple times for rare, concurrent accountNumber collisions
     let newUser:
@@ -226,8 +126,8 @@ export async function createUser(req: Request, res: Response) {
               password: hashedPassword,
               role: roleValue,
               status: statusValue, // typically PENDING until verification
-              emailVerified: false,
-              isApproved: false,
+              emailVerified: true,
+              isApproved: true,
               token: verificationCode, // store 6-digit code for email verification
             },
             select: {
@@ -464,190 +364,6 @@ export async function getUserById(req: Request, res: Response) {
   }
 }
 
-/* ======================
-   UPDATE USER
-====================== */
-// export async function updateUser(req: AuthRequest, res: Response) {
-//   const { id } = req.params;
-//   const {
-//     firstName,
-//     lastName,
-//     email,
-//     phone,
-//     role,
-//     status,
-//     password,
-//     imageUrl,
-//   } = req.body as {
-//     firstName?: string;
-//     lastName?: string;
-//     email?: string;
-//     phone?: string;
-//     role?: UserRole | string;
-//     status?: UserStatus | string;
-//     password?: string;
-//     imageUrl?: string;
-//   };
-
-//   try {
-//     const existingUser = await db.user.findUnique({ where: { id } });
-//     if (!existingUser) {
-//       return res.status(404).json({ data: null, error: "User not found" });
-//     }
-
-//     // Uniqueness checks for email/phone
-//     if (email || phone) {
-//       const emailNorm = email?.trim().toLowerCase();
-//       const phoneNorm = phone?.trim();
-//       const conflictUser = await db.user.findFirst({
-//         where: {
-//           OR: [{ email: emailNorm ?? undefined }, { phone: phoneNorm ?? undefined }],
-//           NOT: { id },
-//         },
-//         select: { id: true },
-//       });
-//       if (conflictUser) {
-//         return res
-//           .status(409)
-//           .json({ data: null, error: "Email or phone already in use by another user" });
-//       }
-//     }
-
-//     const roleValue =
-//       role !== undefined ? (isValidRole(role) ? (role as UserRole) : undefined) : undefined;
-//     const statusValue =
-//       status !== undefined ? (isValidStatus(status) ? (status as UserStatus) : undefined) : undefined;
-
-//     const hashedPassword = password ? await bcrypt.hash(password, 12) : undefined;
-
-//     const nextFirst = firstName ?? existingUser.firstName;
-//     const nextLast = lastName ?? existingUser.lastName;
-
-//     const updatedUser = await db.user.update({
-//       where: { id },
-//       data: {
-//         firstName: nextFirst,
-//         lastName: nextLast,
-//         name: `${nextFirst} ${nextLast}`.trim(),
-//         email: email ? email.trim().toLowerCase() : existingUser.email,
-//         phone: phone ? phone.trim() : existingUser.phone,
-//         role: roleValue ?? existingUser.role,
-//         status: statusValue ?? existingUser.status,
-//         password: hashedPassword ?? existingUser.password,
-//         imageUrl: imageUrl ?? existingUser.imageUrl,
-//       },
-//       select: {
-//         id: true,
-//         firstName: true,
-//         lastName: true,
-//         name: true,
-//         email: true,
-//         phone: true,
-//         role: true,
-//         status: true,
-//         imageUrl: true,
-//         createdAt: true,
-//         updatedAt: true,
-//       },
-//     });
-
-//     return res.status(200).json({ data: updatedUser, error: null });
-//   } catch (error) {
-//     console.error("Error updating user:", error);
-//     return res.status(500).json({ data: null, error: "Failed to update user" });
-//   }
-// }
-
-// export async function updateUser(req: Request, res: Response) {
-//   const { id } = req.params;
-//   const {
-//     firstName,
-//     lastName,
-//     email,
-//     phone,
-//     role,
-//     status,
-//     password,
-//     imageUrl,
-//   } = req.body as {
-//     firstName?: string;
-//     lastName?: string;
-//     email?: string;
-//     phone?: string;
-//     role?: UserRole | string;
-//     status?: UserStatus | string;
-//     password?: string;
-//     imageUrl?: string;
-//   };
-
-//   try {
-//     const existingUser = await db.user.findUnique({ where: { id } });
-//     if (!existingUser) {
-//       return res.status(404).json({ data: null, error: "User not found" });
-//     }
-
-//     // Uniqueness checks for email/phone
-//     if (email || phone) {
-//       const emailNorm = email?.trim().toLowerCase();
-//       const phoneNorm = phone?.trim();
-//       const conflictUser = await db.user.findFirst({
-//         where: {
-//           OR: [{ email: emailNorm ?? undefined }, { phone: phoneNorm ?? undefined }],
-//           NOT: { id },
-//         },
-//         select: { id: true },
-//       });
-//       if (conflictUser) {
-//         return res
-//           .status(409)
-//           .json({ data: null, error: "Email or phone already in use by another user" });
-//       }
-//     }
-
-//     const roleValue =
-//       role !== undefined ? (isValidRole(role) ? (role as UserRole) : undefined) : undefined;
-//     const statusValue =
-//       status !== undefined ? (isValidStatus(status) ? (status as UserStatus) : undefined) : undefined;
-
-//     const hashedPassword = password ? await bcrypt.hash(password, 12) : undefined;
-
-//     const nextFirst = firstName ?? existingUser.firstName;
-//     const nextLast = lastName ?? existingUser.lastName;
-
-//     const updatedUser = await db.user.update({
-//       where: { id },
-//       data: {
-//         firstName: nextFirst,
-//         lastName: nextLast,
-//         name: `${nextFirst} ${nextLast}`.trim(),
-//         email: email ? email.trim().toLowerCase() : existingUser.email,
-//         phone: phone ? phone.trim() : existingUser.phone,
-//         role: roleValue ?? existingUser.role,
-//         status: statusValue ?? existingUser.status,
-//         password: hashedPassword ?? existingUser.password,
-//         imageUrl: imageUrl ?? existingUser.imageUrl,
-//       },
-//       select: {
-//         id: true,
-//         firstName: true,
-//         lastName: true,
-//         name: true,
-//         email: true,
-//         phone: true,
-//         role: true,
-//         status: true,
-//         imageUrl: true,
-//         createdAt: true,
-//         updatedAt: true,
-//       },
-//     });
-
-//     return res.status(200).json({ data: updatedUser, error: null });
-//   } catch (error) {
-//     console.error("Error updating user:", error);
-//     return res.status(500).json({ data: null, error: "Failed to update user" });
-//   }
-// }
 
 
 export async function updateUser(req: Request, res: Response) {
