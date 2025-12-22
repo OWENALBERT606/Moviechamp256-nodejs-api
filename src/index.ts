@@ -16,6 +16,8 @@ import myListRouter from "./routes/mylist";
 import searchRouter from "./routes/search";
 import paymentRouter from "./routes/payments";
 import userxRouter from "./routes/usersx";
+import dashboardRouter from "./routes/dashboard";
+import adminRouter from "./routes/admin";
 
 const cors = require("cors");
 const app = express();
@@ -42,6 +44,10 @@ app.use("/api/v1", watchHistoryRouter);
 app.use("/api/v1", searchRouter);
 app.use("/api/v1", paymentRouter);
 app.use("/api/v1", userxRouter);
+app.use("/api/v1", dashboardRouter);
+app.use("/api/v1", adminRouter);
+
+
 
 
 
