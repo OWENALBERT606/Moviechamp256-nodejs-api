@@ -1,6 +1,5 @@
 import { db } from "@/db/db";
 import { Request, Response } from "express";
-import axios from "axios";
 
 /* Helper to calculate subscription end date */
 function calculateEndDate(planId: string): Date {
