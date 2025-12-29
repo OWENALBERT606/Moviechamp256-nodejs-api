@@ -515,20 +515,20 @@ export async function createSeason(req: Request, res: Response) {
       return res.status(404).json({ data: null, error: "Series not found" });
     }
 
-    // Check if season already exists
-    const existingSeason = await db.season.findFirst({
-      where: {
-        seriesId,
-        seasonNumber: parseInt(seasonNumber),
-      },
-    });
+    // // Check if season already exists
+    // const existingSeason = await db.season.findFirst({
+    //   where: {
+    //     seriesId,
+    //     seasonNumber: parseInt(seasonNumber),
+    //   },
+    // });
 
-    if (existingSeason) {
-      return res.status(409).json({
-        data: null,
-        error: "Season with this number already exists for this series",
-      });
-    }
+    // if (existingSeason) {
+    //   return res.status(409).json({
+    //     data: null,
+    //     error: "Season with this number already exists for this series",
+    //   });
+    // }
 
     const newSeason = await db.season.create({
       data: {
