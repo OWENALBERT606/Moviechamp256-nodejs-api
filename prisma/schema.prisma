@@ -224,7 +224,7 @@ model Season {
   id            String    @id @default(cuid())
   seriesId      String
   series        Series    @relation(fields: [seriesId], references: [id], onDelete: Cascade)
-  seasonNumber  Int       @unique
+  seasonNumber  Int       
   title         String?
   description   String?   @db.Text
   poster        String? // Optional season-specific poster
@@ -244,7 +244,7 @@ model Episode {
   id            String          @id @default(cuid())
   seasonId      String
   season        Season          @relation(fields: [seasonId], references: [id], onDelete: Cascade)
-  episodeNumber Int             @unique
+  episodeNumber Int           
   title         String
   description   String?         @db.Text
   videoUrl      String
