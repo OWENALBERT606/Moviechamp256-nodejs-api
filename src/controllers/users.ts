@@ -32,6 +32,158 @@ const makeSixDigitToken = () =>
   String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
 
 
+// export async function createUser(req: Request, res: Response) {
+//   const {
+//     email,
+//     phone,
+//     password,
+//     firstName,
+//     lastName,
+//     imageUrl,            // optional
+//     role,                // optional
+//     status,              // optional
+//   } = req.body as {
+//     email: string;
+//     phone: string;
+//     password: string;
+//     firstName: string;
+//     lastName: string;
+//     imageUrl?: string;
+//     role?: UserRole | string;
+//     status?: UserStatus | string;
+//   };
+
+//   try {
+//     // Basic validation
+//     if (!email || !phone || !password || !firstName || !lastName) {
+//       return res.status(400).json({ data: null, error: "Missing required fields." });
+//     }
+
+//     // ✅ Password length validation (minimum 6 characters)
+// if (password.length < 6) {
+//   return res.status(400).json({ 
+//     data: null, 
+//     error: "Password must be at least 6 characters long." 
+//   });
+// }
+
+//     const emailNorm = email.trim().toLowerCase();
+//     const phoneNorm = phone.trim();
+//     const roleValue: UserRole = isValidRole(role) ? (role as UserRole) : UserRole.USER;
+//     const statusValue: UserStatus = isValidStatus(status) ? (status as UserStatus) : UserStatus.ACTIVE;
+
+//     // Pre-check (optional but gives nicer error than catching P2002)
+//     const existing = await db.user.findFirst({
+//       where: { OR: [{ email: emailNorm }, { phone: phoneNorm }] },
+//       select: { id: true },
+//     });
+//     if (existing) {
+//       return res
+//         .status(409)
+//         .json({ data: null, error: "User with this email or phone already exists" });
+//     }
+
+//     const hashedPassword = await bcrypt.hash(password, 12);
+//     const verificationCode = makeSixDigitToken();
+
+//     // Defaults for the new wallet
+//     // const bankFee = 30;
+//     // const transactionFee = 10;
+//     // const feeAtBank = 10;
+//     // const totalFees = bankFee + transactionFee + feeAtBank;
+//     // const netAssetValue = 0 - totalFees;
+
+//     // Retry whole transaction a couple times for rare, concurrent accountNumber collisions
+//     let newUser:
+//       | {
+//           id: string;
+//           firstName: string | null;
+//           lastName: string | null;
+//           name: string | null;
+//           email: string;
+//           phone: string | null;
+//           imageUrl: string | null;
+//           role: UserRole;
+//           status: UserStatus;
+//           createdAt: Date;
+//           updatedAt: Date;
+//         }
+//       | undefined;
+
+//     for (let attempt = 0; attempt < 3; attempt++) {
+//       try {
+//         newUser = await db.$transaction(async (tx) => {
+//           const accountNumber = await generateAccountNumber();
+
+//           const user = await tx.user.create({
+//             data: {
+//               email: emailNorm,
+//               phone: phoneNorm,
+//               firstName,
+//               lastName,
+//               name: `${firstName} ${lastName}`.trim(),
+//               imageUrl, // let Prisma default if undefined
+//               password: hashedPassword,
+//               role: roleValue,
+//               status: statusValue, // typically PENDING until verification
+//               emailVerified: true,
+//               isApproved: true,
+//               token: verificationCode, // store 6-digit code for email verification
+//             },
+//             select: {
+//               id: true,
+//               firstName: true,
+//               lastName: true,
+//               name: true,
+//               email: true,
+//               phone: true,
+//               imageUrl: true,
+//               role: true,
+//               status: true,
+//               createdAt: true,
+//               updatedAt: true,
+//             },
+//           });
+
+//           return user;
+//         });
+
+//         // success -> break retry loop
+//         break;
+//       } catch (err: any) {
+//         // Re-try only if this looks like a unique violation (e.g., accountNumber race)
+//         if (err?.code === "P2002" && attempt < 2) {
+//           continue;
+//         }
+//         throw err;
+//       }
+//     }
+
+//     // Should never be undefined here
+//     if (!newUser) {
+//       return res.status(500).json({ data: null, error: "Failed to create user." });
+//     }
+
+//     // Send verification email AFTER the DB commit
+//     await sendVerificationCodeResend({
+//       to: newUser.email,
+//       name: newUser.firstName ?? newUser.name ?? "there",
+//       code: verificationCode,
+//     });
+
+//     return res.status(201).json({ data: newUser, error: null });
+//   } catch (error: any) {
+//     if (error?.code === "P2002") {
+//       // Unique constraint violation (email/phone/accountNumber)
+//       return res.status(409).json({ data: null, error: "Email or phone already in use" });
+//     }
+//     console.error("Error creating user:", error);
+//     return res.status(500).json({ data: null, error: "Something went wrong" });
+//   }
+// }
+
+
+
 export async function createUser(req: Request, res: Response) {
   const {
     email,
@@ -60,17 +212,18 @@ export async function createUser(req: Request, res: Response) {
     }
 
     // ✅ Password length validation (minimum 6 characters)
-if (password.length < 6) {
-  return res.status(400).json({ 
-    data: null, 
-    error: "Password must be at least 6 characters long." 
-  });
-}
+    if (password.length < 6) {
+      return res.status(400).json({ 
+        data: null, 
+        error: "Password must be at least 6 characters long." 
+      });
+    }
 
     const emailNorm = email.trim().toLowerCase();
     const phoneNorm = phone.trim();
     const roleValue: UserRole = isValidRole(role) ? (role as UserRole) : UserRole.USER;
-    const statusValue: UserStatus = isValidStatus(status) ? (status as UserStatus) : UserStatus.ACTIVE;
+    // ✅ Always set status to ACTIVE for new registrations
+    const statusValue: UserStatus = UserStatus.ACTIVE;
 
     // Pre-check (optional but gives nicer error than catching P2002)
     const existing = await db.user.findFirst({
@@ -84,14 +237,8 @@ if (password.length < 6) {
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
-    const verificationCode = makeSixDigitToken();
-
-    // Defaults for the new wallet
-    // const bankFee = 30;
-    // const transactionFee = 10;
-    // const feeAtBank = 10;
-    // const totalFees = bankFee + transactionFee + feeAtBank;
-    // const netAssetValue = 0 - totalFees;
+    // ✅ No need for verification code since we're auto-verifying
+    // const verificationCode = makeSixDigitToken();
 
     // Retry whole transaction a couple times for rare, concurrent accountNumber collisions
     let newUser:
@@ -125,10 +272,10 @@ if (password.length < 6) {
               imageUrl, // let Prisma default if undefined
               password: hashedPassword,
               role: roleValue,
-              status: statusValue, // typically PENDING until verification
-              emailVerified: true,
-              isApproved: true,
-              token: verificationCode, // store 6-digit code for email verification
+              status: statusValue,        // ✅ ACTIVE
+              emailVerified: true,        // ✅ Auto-verified
+              isApproved: true,           // ✅ Auto-approved
+              token: null,                // ✅ No verification token needed
             },
             select: {
               id: true,
@@ -164,12 +311,11 @@ if (password.length < 6) {
       return res.status(500).json({ data: null, error: "Failed to create user." });
     }
 
-    // Send verification email AFTER the DB commit
-    await sendVerificationCodeResend({
-      to: newUser.email,
-      name: newUser.firstName ?? newUser.name ?? "there",
-      code: verificationCode,
-    });
+    // ✅ Optional: Send welcome email instead of verification email
+    // await sendWelcomeEmail({
+    //   to: newUser.email,
+    //   name: newUser.firstName ?? newUser.name ?? "there",
+    // });
 
     return res.status(201).json({ data: newUser, error: null });
   } catch (error: any) {
