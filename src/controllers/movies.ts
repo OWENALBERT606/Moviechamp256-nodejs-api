@@ -673,7 +673,7 @@ export async function getAllMovies(req: Request, res: Response) {
     } = req.query;
 
     const pageNum = parseInt(page as string);
-    // const limitNum = parseInt(limit as string);
+    
     const limitNum = 100;
     const skip = (pageNum - 1) * limitNum;
 
