@@ -167,6 +167,7 @@ model Movie {
   watchHistory  WatchHistory[]
   trailerUrl    String
   videoUrl      String
+  subtitles   Json?
   isTrending    Boolean        @default(false)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
