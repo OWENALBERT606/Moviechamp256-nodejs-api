@@ -1,6 +1,11 @@
 require("dotenv").config();
 
 import express from "express";
+
+/* Patch BigInt → JSON globally so all routes can serialize BigInt fields */
+(BigInt.prototype as any).toJSON = function () {
+  return this.toString();
+};
 import userRouter from "./routes/users";
 import authRouter from "./routes/auth";
 import genreRouter from "./routes/genres";

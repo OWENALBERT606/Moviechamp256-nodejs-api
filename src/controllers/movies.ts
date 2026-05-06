@@ -531,7 +531,12 @@
 import { db } from "@/db/db";
 import { Request, Response } from "express";
 
-/* Helper to serialize BigInt for JSON */
+/* Patch BigInt serialization globally — prevents "Do not know how to serialize a BigInt" */
+(BigInt.prototype as any).toJSON = function () {
+  return this.toString();
+};
+
+/* Helper to serialize BigInt for JSON (belt-and-suspenders) */
 function serializeBigInt(obj: any): any {
   return JSON.parse(
     JSON.stringify(obj, (key, value) =>
