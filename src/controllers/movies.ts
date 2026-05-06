@@ -740,9 +740,9 @@ export async function getAllMovies(req: Request, res: Response) {
         totalPages: Math.ceil(total / limitNum),
       },
     });
-  } catch (error) {
-    console.error("Error fetching movies:", error);
-    return res.status(500).json({ data: null, error: "Failed to fetch movies" });
+  } catch (error: any) {
+    console.error("Error fetching movies:", error?.message || error);
+    return res.status(500).json({ data: null, error: error?.message || "Failed to fetch movies" });
   }
 }
 
