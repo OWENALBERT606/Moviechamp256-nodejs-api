@@ -991,7 +991,7 @@ export async function getTrendingMovies(req: Request, res: Response) {
     const movies = await db.movie.findMany({
       where: { isTrending: true },
       take: parseInt(limit as string),
-      orderBy: { viewsCount: "desc" },
+      orderBy: { createdAt: "desc" },
       include: {
         vj: {
           select: {

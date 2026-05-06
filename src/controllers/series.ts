@@ -453,7 +453,7 @@ export async function getTrendingSeries(req: Request, res: Response) {
     const series = await db.series.findMany({
       where: { isTrending: true },
       take: parseInt(limit as string),
-      orderBy: { viewsCount: "desc" },
+      orderBy: { createdAt: "desc" },
       include: {
         vj: true,
         genre: true,
