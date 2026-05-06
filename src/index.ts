@@ -21,7 +21,19 @@ import adminRouter from "./routes/admin";
 
 const cors = require("cors");
 const app = express();
-app.use(cors());
+
+app.use(cors({
+  origin: [
+    "http://localhost:3000",
+    "https://flickerplay-frontend.vercel.app",
+    /\.vercel\.app$/,
+    process.env.FRONTEND_URL,
+  ].filter(Boolean),
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+app.options("*", cors());
 const PORT = process.env.PORT || 8000;
 
 app.use(express.json());
