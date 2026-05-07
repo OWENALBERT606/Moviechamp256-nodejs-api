@@ -23,6 +23,7 @@ import paymentRouter from "./routes/payments";
 import userxRouter from "./routes/usersx";
 import dashboardRouter from "./routes/dashboard";
 import adminRouter from "./routes/admin";
+import metadataRouter from "./routes/metadata.routes";
 
 const cors = require("cors");
 const app = express();
@@ -63,6 +64,7 @@ app.use("/api/v1", paymentRouter);
 app.use("/api/v1", userxRouter);
 app.use("/api/v1", dashboardRouter);
 app.use("/api/v1", adminRouter);
+app.use("/api/v1", metadataRouter);
 
 
 
