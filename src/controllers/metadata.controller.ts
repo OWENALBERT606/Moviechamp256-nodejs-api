@@ -6,6 +6,10 @@ import {
   fetchSeriesMetadata,
   enrichSeriesById,
 } from "@/services/metadata/metadata.service";
+import {
+  getTmdbSeasonDetails,
+  getTmdbEpisodeDetails,
+} from "@/services/metadata/tmdb-series.service";
 
 /* ── GET /api/v1/metadata/search/movie?title=Inception ── */
 export async function searchMovie(req: Request, res: Response) {
@@ -68,5 +72,44 @@ export async function enrichSeries(req: Request, res: Response) {
   } catch (e: any) {
     console.error("[metadata.controller] enrichSeries error:", e.message);
     return res.status(500).json({ success: false, error: "Failed to enrich series metadata" });
+  }
+}
+
+/* ── GET /api/v1/metadata/season/:tmdbSeriesId/:seasonNumber ── */
+export async function enrichSeason(req: Request, res: Response) {
+  const tmdbSeriesId = parseInt(req.params.tmdbSeriesId);
+  const seasonNumber = parseInt(req.params.seasonNumber);
+
+  if (isNaN(tmdbSeriesId) || isNaN(seasonNumber)) {
+    return res.status(400).json({ success: false, error: "Invalid tmdbSeriesId or seasonNumber" });
+  }
+
+  try {
+    const data = await getTmdbSeasonDetails(tmdbSeriesId, seasonNumber);
+    if (!data) return res.status(404).json({ success: false, error: "Season not found on TMDB" });
+    return res.status(200).json({ success: true, data });
+  } catch (e: any) {
+    console.error("[metadata.controller] enrichSeason error:", e.message);
+    return res.status(500).json({ success: false, error: "Failed to fetch season metadata" });
+  }
+}
+
+/* ── GET /api/v1/metadata/episode/:tmdbSeriesId/:seasonNumber/:episodeNumber ── */
+export async function enrichEpisode(req: Request, res: Response) {
+  const tmdbSeriesId  = parseInt(req.params.tmdbSeriesId);
+  const seasonNumber  = parseInt(req.params.seasonNumber);
+  const episodeNumber = parseInt(req.params.episodeNumber);
+
+  if (isNaN(tmdbSeriesId) || isNaN(seasonNumber) || isNaN(episodeNumber)) {
+    return res.status(400).json({ success: false, error: "Invalid parameters" });
+  }
+
+  try {
+    const data = await getTmdbEpisodeDetails(tmdbSeriesId, seasonNumber, episodeNumber);
+    if (!data) return res.status(404).json({ success: false, error: "Episode not found on TMDB" });
+    return res.status(200).json({ success: true, data });
+  } catch (e: any) {
+    console.error("[metadata.controller] enrichEpisode error:", e.message);
+    return res.status(500).json({ success: false, error: "Failed to fetch episode metadata" });
   }
 }
