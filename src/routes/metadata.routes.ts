@@ -1,5 +1,4 @@
 import express from "express";
-import { authenticateToken } from "@/utils/auth";
 import {
   searchMovie,
   searchSeries,
@@ -9,11 +8,10 @@ import {
 
 const metadataRouter = express.Router();
 
-// All metadata endpoints require authentication
-metadataRouter.use(authenticateToken as any);
-
-metadataRouter.get("/metadata/search/movie",    searchMovie);
-metadataRouter.get("/metadata/search/series",   searchSeries);
+// No auth required — these endpoints only proxy external APIs (TMDB/OMDB/YouTube)
+// and return no sensitive user data. Auth is enforced at the create/update movie level.
+metadataRouter.get("/metadata/search/movie",          searchMovie);
+metadataRouter.get("/metadata/search/series",         searchSeries);
 metadataRouter.get("/metadata/enrich/movie/:tmdbId",  enrichMovie);
 metadataRouter.get("/metadata/enrich/series/:tmdbId", enrichSeries);
 
