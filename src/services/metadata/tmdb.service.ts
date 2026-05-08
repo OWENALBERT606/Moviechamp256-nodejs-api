@@ -201,3 +201,60 @@ export async function getUpcomingMovieIds(): Promise<number[]> {
     return [];
   }
 }
+
+/** Full upcoming movies with poster, title, release date, overview, genres */
+export async function getUpcomingMovies(limit = 20) {
+  const cacheKey = `upcoming_movies_full_${limit}`;
+  const cached = getCache<any[]>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const res = await tmdbGet("/movie/upcoming", { language: "en-US", page: 1 });
+    const results = (res.data.results || []).slice(0, limit).map((m: any) => ({
+      tmdbId:      m.id,
+      title:       m.title,
+      overview:    m.overview || "",
+      poster:      m.poster_path   ? `${TMDB_IMAGE_BASE}${m.poster_path}`     : null,
+      backdrop:    m.backdrop_path ? `${TMDB_BACKDROP_BASE}${m.backdrop_path}` : null,
+      releaseDate: m.release_date  || null,
+      releaseYear: m.release_date  ? m.release_date.slice(0, 4) : null,
+      rating:      parseFloat(m.vote_average) || 0,
+      genres:      (m.genre_ids || []) as number[],
+      source:      "tmdb" as const,
+    }));
+    setCache(cacheKey, results, SIX_HOURS);
+    return results;
+  } catch (e: any) {
+    console.error("[tmdb.service] getUpcomingMovies error:", e.message);
+    return [];
+  }
+}
+
+/** Upcoming TV series from TMDB */
+export async function getUpcomingSeries(limit = 20) {
+  const cacheKey = `upcoming_series_full_${limit}`;
+  const cached = getCache<any[]>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    // TMDB doesn't have a dedicated "upcoming TV" endpoint — use on_the_air (airing soon)
+    const res = await tmdbGet("/tv/on_the_air", { language: "en-US", page: 1 });
+    const results = (res.data.results || []).slice(0, limit).map((s: any) => ({
+      tmdbId:      s.id,
+      title:       s.name,
+      overview:    s.overview || "",
+      poster:      s.poster_path   ? `${TMDB_IMAGE_BASE}${s.poster_path}`     : null,
+      backdrop:    s.backdrop_path ? `${TMDB_BACKDROP_BASE}${s.backdrop_path}` : null,
+      releaseDate: s.first_air_date || null,
+      releaseYear: s.first_air_date ? s.first_air_date.slice(0, 4) : null,
+      rating:      parseFloat(s.vote_average) || 0,
+      genres:      (s.genre_ids || []) as number[],
+      source:      "tmdb" as const,
+    }));
+    setCache(cacheKey, results, SIX_HOURS);
+    return results;
+  } catch (e: any) {
+    console.error("[tmdb.service] getUpcomingSeries error:", e.message);
+    return [];
+  }
+}

@@ -10,6 +10,10 @@ import {
   getTmdbSeasonDetails,
   getTmdbEpisodeDetails,
 } from "@/services/metadata/tmdb-series.service";
+import {
+  getUpcomingMovies,
+  getUpcomingSeries,
+} from "@/services/metadata/tmdb.service";
 
 /* ── GET /api/v1/metadata/search/movie?title=Inception ── */
 export async function searchMovie(req: Request, res: Response) {
@@ -111,5 +115,29 @@ export async function enrichEpisode(req: Request, res: Response) {
   } catch (e: any) {
     console.error("[metadata.controller] enrichEpisode error:", e.message);
     return res.status(500).json({ success: false, error: "Failed to fetch episode metadata" });
+  }
+}
+
+/* ── GET /api/v1/metadata/upcoming/movies?limit=20 ── */
+export async function upcomingMovies(req: Request, res: Response) {
+  const limit = parseInt((req.query.limit as string) || "20");
+  try {
+    const data = await getUpcomingMovies(limit);
+    return res.status(200).json({ success: true, data });
+  } catch (e: any) {
+    console.error("[metadata.controller] upcomingMovies error:", e.message);
+    return res.status(500).json({ success: false, error: "Failed to fetch upcoming movies" });
+  }
+}
+
+/* ── GET /api/v1/metadata/upcoming/series?limit=20 ── */
+export async function upcomingSeries(req: Request, res: Response) {
+  const limit = parseInt((req.query.limit as string) || "20");
+  try {
+    const data = await getUpcomingSeries(limit);
+    return res.status(200).json({ success: true, data });
+  } catch (e: any) {
+    console.error("[metadata.controller] upcomingSeries error:", e.message);
+    return res.status(500).json({ success: false, error: "Failed to fetch upcoming series" });
   }
 }
