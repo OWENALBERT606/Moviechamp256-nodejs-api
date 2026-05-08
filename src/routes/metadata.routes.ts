@@ -8,6 +8,7 @@ import {
   enrichEpisode,
   upcomingMovies,
   upcomingSeries,
+  importSeriesFromTmdb,
 } from "@/controllers/metadata.controller";
 
 const metadataRouter = express.Router();
@@ -20,5 +21,6 @@ metadataRouter.get("/metadata/season/:tmdbSeriesId/:seasonNumber",              
 metadataRouter.get("/metadata/episode/:tmdbSeriesId/:seasonNumber/:episodeNumber", enrichEpisode);
 metadataRouter.get("/metadata/upcoming/movies",                                    upcomingMovies);
 metadataRouter.get("/metadata/upcoming/series",                                    upcomingSeries);
+metadataRouter.post("/metadata/import-series/:seriesId",                           importSeriesFromTmdb);
 
 export default metadataRouter;
