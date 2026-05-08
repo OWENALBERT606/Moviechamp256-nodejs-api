@@ -50,6 +50,7 @@ import {
   incrementSeriesViewCount,
   getTrendingSeries,
   getComingSoonSeries,
+  addSeasonsToSeries,
 } from "@/controllers/series";
 
 const seriesRouter = express.Router();
@@ -71,6 +72,7 @@ seriesRouter.post("/series/:id/view", incrementSeriesViewCount);
 
 // CRUD routes
 seriesRouter.post("/series", createSeries);
+seriesRouter.post("/series/:id/seasons", addSeasonsToSeries);
 seriesRouter.put("/series/:id", updateSeries);
 seriesRouter.delete("/series/:id", deleteSeries);
 

@@ -45,6 +45,7 @@ export async function createSeries(req: Request, res: Response) {
     trailerUrl,
     isComingSoon,
     isTrending,
+    seasons, // Array of { seasonNumber, title, description, poster, releaseYear, episodes: [{ episodeNumber, title, description, poster, length, lengthSeconds, releaseDate }] }
   } = req.body;
 
   try {
@@ -73,23 +74,80 @@ export async function createSeries(req: Request, res: Response) {
       });
     }
 
-    const newSeries = await db.series.create({
-      data: {
-        title: titleNorm,
-        slug,
-        poster: poster || "",
-        trailerPoster: trailerPoster || "",
-        rating: parseFloat(rating) || 0,
-        vjId,
-        genreId,
-        yearId,
-        description: description?.trim() || "",
-        director: director?.trim() || "",
-        cast: Array.isArray(cast) ? cast : [],
-        trailerUrl: trailerUrl || "",
-        isComingSoon: isComingSoon === true || isComingSoon === "true",
-        isTrending: isTrending === true || isTrending === "true",
-      },
+    // Calculate totals if seasons provided
+    const totalSeasons = Array.isArray(seasons) ? seasons.length : 0;
+    const totalEpisodes = Array.isArray(seasons)
+      ? seasons.reduce((sum: number, s: any) => sum + (Array.isArray(s.episodes) ? s.episodes.length : 0), 0)
+      : 0;
+
+    // Create series with seasons and episodes in a transaction
+    const newSeries = await db.$transaction(async (tx) => {
+      // Create the series
+      const series = await tx.series.create({
+        data: {
+          title: titleNorm,
+          slug,
+          poster: poster || "",
+          trailerPoster: trailerPoster || "",
+          rating: parseFloat(rating) || 0,
+          vjId,
+          genreId,
+          yearId,
+          description: description?.trim() || "",
+          director: director?.trim() || "",
+          cast: Array.isArray(cast) ? cast : [],
+          trailerUrl: trailerUrl || "",
+          isComingSoon: isComingSoon === true || isComingSoon === "true",
+          isTrending: isTrending === true || isTrending === "true",
+          totalSeasons,
+          totalEpisodes,
+        },
+      });
+
+      // Create seasons and episodes if provided
+      if (Array.isArray(seasons) && seasons.length > 0) {
+        for (const seasonData of seasons) {
+          const { seasonNumber, title: seasonTitle, description: seasonDesc, poster: seasonPoster, releaseYear, episodes } = seasonData;
+
+          const season = await tx.season.create({
+            data: {
+              seriesId: series.id,
+              seasonNumber,
+              title: seasonTitle || `Season ${seasonNumber}`,
+              description: seasonDesc || "",
+              poster: seasonPoster || "",
+              releaseYear: releaseYear || null,
+              totalEpisodes: Array.isArray(episodes) ? episodes.length : 0,
+            },
+          });
+
+          // Create episodes
+          if (Array.isArray(episodes) && episodes.length > 0) {
+            for (const ep of episodes) {
+              await tx.episode.create({
+                data: {
+                  seasonId: season.id,
+                  episodeNumber: ep.episodeNumber,
+                  title: ep.title || `Episode ${ep.episodeNumber}`,
+                  description: ep.description || "",
+                  videoUrl: ep.videoUrl || "", // Empty initially - will be added later
+                  poster: ep.poster || "",
+                  length: ep.length || "",
+                  lengthSeconds: ep.lengthSeconds || null,
+                  releaseDate: ep.releaseDate ? new Date(ep.releaseDate) : null,
+                },
+              });
+            }
+          }
+        }
+      }
+
+      return series;
+    });
+
+    // Fetch created series with all relations
+    const seriesWithRelations = await db.series.findUnique({
+      where: { id: newSeries.id },
       include: {
         vj: {
           select: {
@@ -111,10 +169,24 @@ export async function createSeries(req: Request, res: Response) {
             value: true,
           },
         },
+        seasons: {
+          orderBy: { seasonNumber: "asc" },
+          include: {
+            episodes: {
+              orderBy: { episodeNumber: "asc" },
+              select: {
+                id: true,
+                episodeNumber: true,
+                title: true,
+                videoUrl: true,
+              },
+            },
+          },
+        },
       },
     });
 
-    return res.status(201).json({ data: serializeBigInt(newSeries), error: null });
+    return res.status(201).json({ data: serializeBigInt(seriesWithRelations), error: null });
   } catch (error) {
     console.error("Error creating series:", error);
     return res.status(500).json({ data: null, error: "Failed to create series" });
@@ -1119,5 +1191,111 @@ export async function getPreviousEpisode(req: Request, res: Response) {
   } catch (error) {
     console.error("Error fetching previous episode:", error);
     return res.status(500).json({ data: null, error: "Failed to fetch previous episode" });
+  }
+}
+
+/* ADD SEASONS TO EXISTING SERIES */
+export async function addSeasonsToSeries(req: Request, res: Response) {
+  const { id } = req.params;
+  const { seasons } = req.body; // Array of { seasonNumber, title, description, poster, releaseYear, episodes: [...] }
+
+  try {
+    if (!Array.isArray(seasons) || seasons.length === 0) {
+      return res.status(400).json({ data: null, error: "Seasons array is required" });
+    }
+
+    const series = await db.series.findUnique({
+      where: { id },
+      select: { id: true, totalSeasons: true, totalEpisodes: true },
+    });
+
+    if (!series) {
+      return res.status(404).json({ data: null, error: "Series not found" });
+    }
+
+    // Check for duplicate season numbers
+    const existingSeasons = await db.season.findMany({
+      where: { seriesId: id },
+      select: { seasonNumber: true },
+    });
+    const existingSeasonNumbers = new Set(existingSeasons.map((s) => s.seasonNumber));
+
+    const newSeasonsData: any[] = [];
+    let newEpisodesCount = 0;
+
+    for (const seasonData of seasons) {
+      if (existingSeasonNumbers.has(seasonData.seasonNumber)) {
+        continue; // Skip existing seasons
+      }
+
+      newSeasonsData.push({
+        seriesId: id,
+        seasonNumber: seasonData.seasonNumber,
+        title: seasonData.title || `Season ${seasonData.seasonNumber}`,
+        description: seasonData.description || "",
+        poster: seasonData.poster || "",
+        releaseYear: seasonData.releaseYear || null,
+        totalEpisodes: Array.isArray(seasonData.episodes) ? seasonData.episodes.length : 0,
+      });
+
+      newEpisodesCount += Array.isArray(seasonData.episodes) ? seasonData.episodes.length : 0;
+    }
+
+    // Create seasons and episodes in transaction
+    const result = await db.$transaction(async (tx) => {
+      // Create seasons
+      const createdSeasons = await tx.season.createManyAndReturn({
+        data: newSeasonsData,
+      });
+
+      // Create episodes for each season
+      for (let i = 0; i < createdSeasons.length; i++) {
+        const season = createdSeasons[i];
+        const originalSeason = seasons.find((s) => s.seasonNumber === season.seasonNumber);
+
+        if (Array.isArray(originalSeason?.episodes) && originalSeason.episodes.length > 0) {
+          const episodesData = originalSeason.episodes.map((ep: any) => ({
+            seasonId: season.id,
+            episodeNumber: ep.episodeNumber,
+            title: ep.title || `Episode ${ep.episodeNumber}`,
+            description: ep.description || "",
+            videoUrl: ep.videoUrl || "",
+            poster: ep.poster || "",
+            length: ep.length || "",
+            lengthSeconds: ep.lengthSeconds || null,
+            releaseDate: ep.releaseDate ? new Date(ep.releaseDate) : null,
+          }));
+
+          await tx.episode.createMany({ data: episodesData });
+        }
+      }
+
+      // Update series totals
+      const updatedSeries = await db.series.update({
+        where: { id },
+        data: {
+          totalSeasons: { increment: createdSeasons.length },
+          totalEpisodes: { increment: newEpisodesCount },
+        },
+        include: {
+          seasons: {
+            orderBy: { seasonNumber: "asc" },
+            include: {
+              episodes: {
+                orderBy: { episodeNumber: "asc" },
+                select: { id: true, episodeNumber: true, title: true, videoUrl: true },
+              },
+            },
+          },
+        },
+      });
+
+      return updatedSeries;
+    });
+
+    return res.status(201).json({ data: serializeBigInt(result), error: null });
+  } catch (error) {
+    console.error("Error adding seasons:", error);
+    return res.status(500).json({ data: null, error: "Failed to add seasons" });
   }
 }
