@@ -530,6 +530,7 @@
 
 import { db } from "@/db/db";
 import { Request, Response } from "express";
+import { deleteR2Files } from "@/services/r2-delete";
 
 /* Patch BigInt serialization globally — prevents "Do not know how to serialize a BigInt" */
 (BigInt.prototype as any).toJSON = function () {
@@ -941,6 +942,7 @@ export async function deleteMovie(req: Request, res: Response) {
   try {
     const existingMovie = await db.movie.findUnique({
       where: { id },
+      select: { id: true, videoUrl: true, image: true, poster: true, trailerPoster: true },
     });
 
     if (!existingMovie) {
@@ -948,6 +950,13 @@ export async function deleteMovie(req: Request, res: Response) {
     }
 
     await db.movie.delete({ where: { id } });
+
+    await deleteR2Files([
+      existingMovie.videoUrl,
+      existingMovie.image,
+      existingMovie.poster,
+      existingMovie.trailerPoster,
+    ]);
 
     return res.status(200).json({
       data: null,

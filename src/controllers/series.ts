@@ -1,5 +1,6 @@
 import { db } from "@/db/db";
 import { Request, Response } from "express";
+import { deleteR2Files } from "@/services/r2-delete";
 
 /* Patch BigInt serialization globally */
 (BigInt.prototype as any).toJSON = function () {
@@ -479,6 +480,19 @@ export async function deleteSeries(req: Request, res: Response) {
   try {
     const existingSeries = await db.series.findUnique({
       where: { id },
+      select: {
+        id: true,
+        poster: true,
+        trailerPoster: true,
+        seasons: {
+          select: {
+            poster: true,
+            episodes: {
+              select: { videoUrl: true, poster: true },
+            },
+          },
+        },
+      },
     });
 
     if (!existingSeries) {
@@ -486,6 +500,17 @@ export async function deleteSeries(req: Request, res: Response) {
     }
 
     await db.series.delete({ where: { id } });
+
+    const episodeFiles = existingSeries.seasons.flatMap((s) =>
+      s.episodes.flatMap((e) => [e.videoUrl, e.poster])
+    );
+    const seasonPosters = existingSeries.seasons.map((s) => s.poster);
+    await deleteR2Files([
+      existingSeries.poster,
+      existingSeries.trailerPoster,
+      ...seasonPosters,
+      ...episodeFiles,
+    ]);
 
     return res.status(200).json({
       data: null,
@@ -734,32 +759,35 @@ export async function deleteSeason(req: Request, res: Response) {
   try {
     const existingSeason = await db.season.findUnique({
       where: { id },
-      select: { seriesId: true },
+      select: {
+        seriesId: true,
+        poster: true,
+        episodes: {
+          select: { videoUrl: true, poster: true },
+        },
+      },
     });
 
     if (!existingSeason) {
       return res.status(404).json({ data: null, error: "Season not found" });
     }
 
-    // Get episode count before deletion
-    const episodeCount = await db.episode.count({
-      where: { seasonId: id },
-    });
+    const episodeCount = existingSeason.episodes.length;
 
     await db.season.delete({ where: { id } });
 
-    // Update series counts
     await db.series.update({
       where: { id: existingSeason.seriesId },
       data: {
-        totalSeasons: {
-          decrement: 1,
-        },
-        totalEpisodes: {
-          decrement: episodeCount,
-        },
+        totalSeasons: { decrement: 1 },
+        totalEpisodes: { decrement: episodeCount },
       },
     });
+
+    await deleteR2Files([
+      existingSeason.poster,
+      ...existingSeason.episodes.flatMap((e) => [e.videoUrl, e.poster]),
+    ]);
 
     return res.status(200).json({
       data: null,
@@ -964,10 +992,10 @@ export async function deleteEpisode(req: Request, res: Response) {
       where: { id },
       select: {
         seasonId: true,
+        videoUrl: true,
+        poster: true,
         season: {
-          select: {
-            seriesId: true,
-          },
+          select: { seriesId: true },
         },
       },
     });
@@ -978,25 +1006,18 @@ export async function deleteEpisode(req: Request, res: Response) {
 
     await db.episode.delete({ where: { id } });
 
-    // Update season and series episode counts
     await Promise.all([
       db.season.update({
         where: { id: existingEpisode.seasonId },
-        data: {
-          totalEpisodes: {
-            decrement: 1,
-          },
-        },
+        data: { totalEpisodes: { decrement: 1 } },
       }),
       db.series.update({
         where: { id: existingEpisode.season.seriesId },
-        data: {
-          totalEpisodes: {
-            decrement: 1,
-          },
-        },
+        data: { totalEpisodes: { decrement: 1 } },
       }),
     ]);
+
+    await deleteR2Files([existingEpisode.videoUrl, existingEpisode.poster]);
 
     return res.status(200).json({
       data: null,
