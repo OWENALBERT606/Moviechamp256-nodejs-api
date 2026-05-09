@@ -1,4 +1,5 @@
 import { db } from "@/db/db";
+import { invalidatePattern } from "@/utils/cache";
 import { Request, Response } from "express";
 
 /* Helper to calculate subscription end date */
@@ -355,6 +356,10 @@ export async function verifyPayment(req: Request, res: Response) {
             planExpiresAt: payment.subscription?.endDate,
           },
         });
+
+        // Invalidate cached access and stream URLs for this user
+        await invalidatePattern(`access:${payment.userId}:*`);
+        await invalidatePattern(`stream-url:${payment.userId}:*`);
       }
     }
 

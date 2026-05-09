@@ -531,6 +531,7 @@
 import { db } from "@/db/db";
 import { Request, Response } from "express";
 import { deleteR2Files } from "@/services/r2-delete";
+import { invalidateCache } from "@/utils/cache";
 
 /* Patch BigInt serialization globally — prevents "Do not know how to serialize a BigInt" */
 (BigInt.prototype as any).toJSON = function () {
@@ -926,6 +927,8 @@ export async function updateMovie(req: Request, res: Response) {
       },
     });
 
+    await invalidateCache(`movie:${id}`);
+
     return res.status(200).json({ data: serializeBigInt(updatedMovie), error: null });
   } catch (error) {
     console.error("Error updating movie:", error);
@@ -950,6 +953,8 @@ export async function deleteMovie(req: Request, res: Response) {
     }
 
     await db.movie.delete({ where: { id } });
+
+    await invalidateCache(`movie:${id}`);
 
     await deleteR2Files([
       existingMovie.videoUrl,

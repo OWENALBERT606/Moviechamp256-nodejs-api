@@ -3,17 +3,23 @@ import { authenticateToken, AuthRequest } from "@/utils/auth";
 import { db } from "@/db/db";
 import { generateSignedUrl } from "@/utils/signed-url";
 import { extractR2Key } from "@/services/r2-delete";
+import { withCache } from "@/utils/cache";
 
 const streamRouter = Router();
 
 streamRouter.get("/stream/:movieId", authenticateToken, async (req: AuthRequest, res: Response) => {
   const { movieId } = req.params;
+  const userId = req.user!.userId;
 
   try {
-    const movie = await db.movie.findUnique({
-      where: { id: movieId },
-      select: { videoUrl: true },
-    });
+    const movie = await withCache(
+      `movie:${movieId}`,
+      3600,
+      () => db.movie.findUnique({
+        where: { id: movieId },
+        select: { videoUrl: true },
+      })
+    );
 
     if (!movie) {
       return res.status(404).json({ data: null, error: "Movie not found" });
@@ -27,7 +33,12 @@ streamRouter.get("/stream/:movieId", authenticateToken, async (req: AuthRequest,
       return res.status(500).json({ data: null, error: "Could not resolve video path" });
     }
 
-    const url = generateSignedUrl(key);
+    const url = await withCache(
+      `stream-url:${userId}:${movieId}`,
+      3000,
+      async () => generateSignedUrl(key)
+    );
+
     return res.json({ data: { url }, error: null });
   } catch (error) {
     console.error("Error generating stream URL:", error);
