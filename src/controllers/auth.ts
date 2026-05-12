@@ -8,6 +8,7 @@ import { sendResetEmailResend } from "@/utils/mailer";
 import { sendVerificationCodeResend } from "@/lib/mailer";
 import { UserStatus } from "@prisma/client";
 import jwt from "jsonwebtoken";
+import axios from "axios";
 
 
 const RESET_TTL_MIN = 30;
@@ -208,4 +209,91 @@ export async function verifyEmail(req: Request, res: Response) {
     userId: user.id,
     email: user.email,
   });
+}
+
+export async function googleAuth(req: Request, res: Response) {
+  const { code } = req.body as { code: string };
+
+  if (!code) {
+    return res.status(400).json({ error: "Authorization code is required" });
+  }
+
+  try {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+
+    const tokenResponse = await axios.post("https://oauth2.googleapis.com/token", {
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code",
+    });
+
+    const { access_token } = tokenResponse.data;
+
+    const userInfoResponse = await axios.get("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+
+    const { email, name, picture } = userInfoResponse.data;
+
+    let user = await db.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+
+    if (!user) {
+      const randomPassword = crypto.randomBytes(16).toString("hex");
+      const hashedPassword = await bcrypt.hash(randomPassword, 12);
+      
+      const nameParts = name.split(" ");
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+
+      user = await db.user.create({
+        data: {
+          name: name,
+          firstName: firstName,
+          lastName: lastName,
+          email: email.toLowerCase(),
+          phone: `google_${Date.now()}`,
+          password: hashedPassword,
+          imageUrl: picture || "",
+          status: UserStatus.ACTIVE,
+          emailVerified: true,
+        },
+      });
+    }
+
+    if (user.status !== UserStatus.ACTIVE) {
+      return res.status(403).json({ error: "User account is not active" });
+    }
+
+    const payload: any = {
+      userId: user.id,
+      phone: user.phone,
+      email: user.email,
+      role: user.role,
+    };
+    const accessToken = jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET || "secret", { expiresIn: "7d" });
+    const refreshToken = jwt.sign(payload, process.env.REFRESH_TOKEN_SECRET || "refresh-secret", { expiresIn: "30d" });
+
+    await db.refreshToken.create({
+      data: {
+        token: refreshToken,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    const { password: _pw, ...safe } = user;
+    return res.status(200).json({
+      data: { user: safe, accessToken, refreshToken },
+      error: null,
+    });
+  } catch (error: any) {
+    console.error("Google auth error:", error?.response?.data || error);
+    return res.status(500).json({ error: "Failed to authenticate with Google" });
+  }
 }
