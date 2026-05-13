@@ -26,6 +26,8 @@ const dashboard_1 = __importDefault(require("./routes/dashboard"));
 const admin_1 = __importDefault(require("./routes/admin"));
 const metadata_routes_1 = __importDefault(require("./routes/metadata.routes"));
 const stream_1 = __importDefault(require("./routes/stream"));
+const comments_1 = __importDefault(require("./routes/comments"));
+const downloads_1 = __importDefault(require("./routes/downloads"));
 const cors = require("cors");
 const app = (0, express_1.default)();
 app.use(cors({
@@ -64,3 +66,5 @@ app.use("/api/v1", dashboard_1.default);
 app.use("/api/v1", admin_1.default);
 app.use("/api/v1", metadata_routes_1.default);
 app.use("/api/v1", stream_1.default);
+app.use("/api/v1", comments_1.default);
+app.use("/api/v1", downloads_1.default);

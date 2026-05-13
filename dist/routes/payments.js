@@ -13,4 +13,6 @@ paymentRouter.post("/payments/paypal", payments_1.processPayPalPayment);
 paymentRouter.get("/payments/:paymentId/status", payments_1.getPaymentStatus);
 paymentRouter.post("/payments/:paymentId/verify", payments_1.verifyPayment);
 paymentRouter.post("/payments/relworx/webhook", payments_1.relworxWebhook);
+paymentRouter.get("/subscriptions/user/:userId", payments_1.getUserSubscriptions);
+paymentRouter.post("/subscriptions/:subscriptionId/cancel", payments_1.cancelSubscription);
 exports.default = paymentRouter;

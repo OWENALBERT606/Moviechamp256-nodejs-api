@@ -16,6 +16,8 @@ exports.processPayPalPayment = processPayPalPayment;
 exports.getPaymentStatus = getPaymentStatus;
 exports.relworxWebhook = relworxWebhook;
 exports.verifyPayment = verifyPayment;
+exports.getUserSubscriptions = getUserSubscriptions;
+exports.cancelSubscription = cancelSubscription;
 const db_1 = require("../db/db");
 const cache_1 = require("../utils/cache");
 const relworx_service_1 = require("../services/relworx.service");
@@ -351,6 +353,54 @@ function verifyPayment(req, res) {
         catch (error) {
             console.error("Payment verification error:", error);
             return res.status(500).json({ data: null, error: "Failed to verify payment" });
+        }
+    });
+}
+function getUserSubscriptions(req, res) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const { userId } = req.params;
+        if (!userId) {
+            return res.status(400).json({ data: null, error: "userId is required" });
+        }
+        try {
+            const subscriptions = yield db_1.db.subscription.findMany({
+                where: { userId },
+                include: { payments: { orderBy: { createdAt: "desc" }, take: 1 } },
+                orderBy: { createdAt: "desc" },
+            });
+            return res.status(200).json({ data: subscriptions, error: null });
+        }
+        catch (error) {
+            console.error("Error fetching user subscriptions:", error);
+            return res.status(500).json({ data: null, error: "Failed to fetch subscriptions" });
+        }
+    });
+}
+function cancelSubscription(req, res) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const { subscriptionId } = req.params;
+        if (!subscriptionId) {
+            return res.status(400).json({ data: null, error: "subscriptionId is required" });
+        }
+        try {
+            const subscription = yield db_1.db.subscription.findUnique({
+                where: { id: subscriptionId },
+            });
+            if (!subscription) {
+                return res.status(404).json({ data: null, error: "Subscription not found" });
+            }
+            if (subscription.status !== "ACTIVE") {
+                return res.status(400).json({ data: null, error: "Only active subscriptions can be cancelled" });
+            }
+            const updated = yield db_1.db.subscription.update({
+                where: { id: subscriptionId },
+                data: { status: "CANCELLED", cancelledAt: new Date() },
+            });
+            return res.status(200).json({ data: updated, message: "Subscription cancelled successfully", error: null });
+        }
+        catch (error) {
+            console.error("Error cancelling subscription:", error);
+            return res.status(500).json({ data: null, error: "Failed to cancel subscription" });
         }
     });
 }

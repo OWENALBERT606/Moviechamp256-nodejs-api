@@ -7,6 +7,8 @@ import {
   getPaymentStatus,
   verifyPayment,
   relworxWebhook,
+  getUserSubscriptions,
+  cancelSubscription,
 } from "@/controllers/payments";
 
 const paymentRouter = express.Router();
@@ -23,5 +25,9 @@ paymentRouter.post("/payments/:paymentId/verify", verifyPayment);
 
 // Relworx webhook — called by Relworx when payment completes or fails
 paymentRouter.post("/payments/relworx/webhook", relworxWebhook);
+
+// Subscription routes
+paymentRouter.get("/subscriptions/user/:userId", getUserSubscriptions);
+paymentRouter.post("/subscriptions/:subscriptionId/cancel", cancelSubscription);
 
 export default paymentRouter;

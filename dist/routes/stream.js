@@ -8,17 +8,34 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const auth_1 = require("../utils/auth");
 const db_1 = require("../db/db");
 const signed_url_1 = require("../utils/signed-url");
 const r2_delete_1 = require("../services/r2-delete");
 const cache_1 = require("../utils/cache");
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const streamRouter = (0, express_1.Router)();
-streamRouter.get("/stream/:movieId", auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const optionalAuthenticate = (req, res, next) => {
+    const authHeader = req.headers["authorization"];
+    const token = authHeader && authHeader.split(" ")[1];
+    if (!token) {
+        return next();
+    }
+    jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (!err && decoded) {
+            req.user = decoded;
+        }
+        next();
+    });
+};
+streamRouter.get("/stream/:movieId", optionalAuthenticate, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     const { movieId } = req.params;
-    const userId = req.user.userId;
+    const userId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.userId) || "guest";
     try {
         const movie = yield (0, cache_1.withCache)(`movie:${movieId}`, 3600, () => db_1.db.movie.findUnique({
             where: { id: movieId },

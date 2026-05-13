@@ -207,7 +207,6 @@ function getAllSeries(req, res) {
                     where,
                     skip,
                     take: limitNum,
-                    orderBy: { createdAt: "desc" },
                     include: {
                         vj: {
                             select: {
@@ -238,8 +237,9 @@ function getAllSeries(req, res) {
                 }),
                 db_1.db.series.count({ where }),
             ]);
+            const shuffled = series.sort(() => Math.random() - 0.5);
             return res.status(200).json({
-                data: serializeBigInt(series),
+                data: serializeBigInt(shuffled),
                 error: null,
                 pagination: {
                     total,

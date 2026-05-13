@@ -66,6 +66,8 @@ model User {
   payments      Payment[]
   currentPlan   SubscriptionPlan?
   planExpiresAt DateTime?
+  isExempt      Boolean              @default(false)
+  comments      Comment[]
 }
 
 enum UserRole {
@@ -171,6 +173,7 @@ model Movie {
   isTrending    Boolean        @default(false)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  comments      Comment[]
 
   // optional analytics
   watchEvents    WatchEvent[]
@@ -205,6 +208,7 @@ model Series {
   isComingSoon  Boolean        @default(false)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  comments      Comment[]
 
   // Relations
   seasons       Season[]
@@ -297,6 +301,29 @@ model WatchHistory {
   @@index([seriesId])
   @@index([episodeId])
   @@index([lastWatchedAt])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // For movies
+  movieId   String?
+  movie     Movie?   @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  
+  // For series
+  seriesId  String?
+  series    Series?  @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([movieId])
+  @@index([seriesId])
+  @@index([createdAt])
 }
 
 model Documentary {

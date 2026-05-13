@@ -460,3 +460,64 @@ export async function verifyPayment(req: Request, res: Response) {
     return res.status(500).json({ data: null, error: "Failed to verify payment" });
   }
 }
+
+/* ────────────────────────────────────────────────────────────
+   GET /subscriptions/user/:userId
+   Returns active subscriptions for a given user.
+──────────────────────────────────────────────────────────── */
+export async function getUserSubscriptions(req: Request, res: Response) {
+  const { userId } = req.params;
+
+  if (!userId) {
+    return res.status(400).json({ data: null, error: "userId is required" });
+  }
+
+  try {
+    const subscriptions = await db.subscription.findMany({
+      where: { userId },
+      include: { payments: { orderBy: { createdAt: "desc" }, take: 1 } },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return res.status(200).json({ data: subscriptions, error: null });
+  } catch (error) {
+    console.error("Error fetching user subscriptions:", error);
+    return res.status(500).json({ data: null, error: "Failed to fetch subscriptions" });
+  }
+}
+
+/* ────────────────────────────────────────────────────────────
+   POST /subscriptions/:subscriptionId/cancel
+   Cancels an active subscription.
+──────────────────────────────────────────────────────────── */
+export async function cancelSubscription(req: Request, res: Response) {
+  const { subscriptionId } = req.params;
+
+  if (!subscriptionId) {
+    return res.status(400).json({ data: null, error: "subscriptionId is required" });
+  }
+
+  try {
+    const subscription = await db.subscription.findUnique({
+      where: { id: subscriptionId },
+    });
+
+    if (!subscription) {
+      return res.status(404).json({ data: null, error: "Subscription not found" });
+    }
+
+    if (subscription.status !== "ACTIVE") {
+      return res.status(400).json({ data: null, error: "Only active subscriptions can be cancelled" });
+    }
+
+    const updated = await db.subscription.update({
+      where: { id: subscriptionId },
+      data: { status: "CANCELLED", cancelledAt: new Date() },
+    });
+
+    return res.status(200).json({ data: updated, message: "Subscription cancelled successfully", error: null });
+  } catch (error) {
+    console.error("Error cancelling subscription:", error);
+    return res.status(500).json({ data: null, error: "Failed to cancel subscription" });
+  }
+}

@@ -10,6 +10,7 @@ adminRouter.get("/admin/users", admin_1.getAllUsers);
 adminRouter.get("/admin/users/:userId", admin_1.getUserByIdAdmin);
 adminRouter.patch("/admin/users/:userId/status", admin_1.updateUserStatus);
 adminRouter.patch("/admin/users/:userId/role", admin_1.updateUserRole);
+adminRouter.patch("/admin/users/:userId/exempt", admin_1.updateUserExemption);
 adminRouter.delete("/admin/users/:userId", admin_1.deleteUserAdmin);
 adminRouter.get("/admin/payments", admin_1.getAllPayments);
 adminRouter.get("/admin/subscriptions", admin_1.getAllSubscriptions);

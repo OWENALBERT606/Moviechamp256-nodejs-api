@@ -13,6 +13,7 @@ exports.getAllUsers = getAllUsers;
 exports.getUserByIdAdmin = getUserByIdAdmin;
 exports.updateUserStatus = updateUserStatus;
 exports.updateUserRole = updateUserRole;
+exports.updateUserExemption = updateUserExemption;
 exports.deleteUserAdmin = deleteUserAdmin;
 exports.getAllPayments = getAllPayments;
 exports.getAllSubscriptions = getAllSubscriptions;
@@ -56,6 +57,7 @@ function getAllUsers(req, res) {
                         status: true,
                         currentPlan: true,
                         planExpiresAt: true,
+                        isExempt: true,
                         createdAt: true,
                     },
                     orderBy: {
@@ -205,6 +207,35 @@ function updateUserRole(req, res) {
             return res.status(500).json({
                 data: null,
                 error: "Failed to update user role",
+            });
+        }
+    });
+}
+function updateUserExemption(req, res) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const { userId } = req.params;
+        const { isExempt } = req.body;
+        try {
+            const user = yield db_1.db.user.update({
+                where: { id: userId },
+                data: { isExempt },
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    isExempt: true,
+                },
+            });
+            return res.status(200).json({
+                data: user,
+                error: null,
+            });
+        }
+        catch (error) {
+            console.error("Error updating user exemption status:", error);
+            return res.status(500).json({
+                data: null,
+                error: "Failed to update user exemption status",
             });
         }
     });

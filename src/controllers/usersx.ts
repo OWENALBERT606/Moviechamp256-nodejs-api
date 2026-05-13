@@ -21,6 +21,7 @@ export async function getUserById(req: Request, res: Response) {
         status: true,
         currentPlan: true,
         planExpiresAt: true,
+        isExempt: true,
         createdAt: true,
       },
     });

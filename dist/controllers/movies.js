@@ -141,7 +141,6 @@ function getAllMovies(req, res) {
                     where,
                     skip,
                     take: limitNum,
-                    orderBy: { createdAt: "desc" },
                     include: {
                         vj: {
                             select: {
@@ -167,8 +166,9 @@ function getAllMovies(req, res) {
                 }),
                 db_1.db.movie.count({ where }),
             ]);
+            const shuffled = movies.sort(() => Math.random() - 0.5);
             return res.status(200).json({
-                data: serializeBigInt(movies),
+                data: serializeBigInt(shuffled),
                 error: null,
                 pagination: {
                     total,

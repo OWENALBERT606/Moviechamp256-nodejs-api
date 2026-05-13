@@ -52,6 +52,7 @@ export async function getAllUsers(req: Request, res: Response) {
           status: true,
           currentPlan: true,
           planExpiresAt: true,
+          isExempt: true,
           createdAt: true,
         },
         orderBy: {
@@ -211,6 +212,37 @@ export async function updateUserRole(req: Request, res: Response) {
     return res.status(500).json({
       data: null,
       error: "Failed to update user role",
+    });
+  }
+}
+
+/* ---------------------------------- Update User Exemption ---------------------------------- */
+
+export async function updateUserExemption(req: Request, res: Response) {
+  const { userId } = req.params;
+  const { isExempt } = req.body;
+
+  try {
+    const user = await db.user.update({
+      where: { id: userId },
+      data: { isExempt },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isExempt: true,
+      },
+    });
+
+    return res.status(200).json({
+      data: user,
+      error: null,
+    });
+  } catch (error) {
+    console.error("Error updating user exemption status:", error);
+    return res.status(500).json({
+      data: null,
+      error: "Failed to update user exemption status",
     });
   }
 }

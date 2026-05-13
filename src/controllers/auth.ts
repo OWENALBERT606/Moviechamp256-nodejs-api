@@ -297,3 +297,105 @@ export async function googleAuth(req: Request, res: Response) {
     return res.status(500).json({ error: "Failed to authenticate with Google" });
   }
 }
+
+/**
+ * Helper: Find or create user from Google profile
+ */
+async function findOrCreateGoogleUser(profile: { email: string; name: string; picture: string }) {
+  const { email, name, picture } = profile;
+  const normalizedEmail = email.toLowerCase();
+
+  let user = await db.user.findUnique({
+    where: { email: normalizedEmail },
+  });
+
+  if (!user) {
+    const randomPassword = crypto.randomBytes(16).toString("hex");
+    const hashedPassword = await bcrypt.hash(randomPassword, 12);
+    
+    const nameParts = name.split(" ");
+    const firstName = nameParts[0] || "";
+    const lastName = nameParts.slice(1).join(" ") || "";
+
+    user = await db.user.create({
+      data: {
+        name: name,
+        firstName: firstName,
+        lastName: lastName,
+        email: normalizedEmail,
+        phone: `google_${Date.now()}`, // Temporary unique phone for google users
+        password: hashedPassword,
+        imageUrl: picture || "",
+        status: UserStatus.ACTIVE,
+        emailVerified: true,
+      },
+    });
+  }
+
+  return user;
+}
+
+/**
+ * Helper: Generate JWT token for user
+ */
+function generateAuthToken(user: { id: string; email: string }) {
+  const payload = {
+    userId: user.id,
+    email: user.email,
+  };
+
+  return jwt.sign(payload, process.env.JWT_SECRET || "your_jwt_secret_here", {
+    expiresIn: "7d",
+  });
+}
+
+export async function googleAuthCallback(req: Request, res: Response) {
+  const { code, error } = req.query;
+
+  if (error) {
+    console.error("Google Auth Error:", error);
+    return res.status(400).json({ error: `Authentication failed: ${error}` });
+  }
+
+  if (!code) {
+    return res.status(400).json({ error: "Authorization code is missing" });
+  }
+
+  try {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+    const frontendUrl = process.env.FRONTEND_URL || "https://your-frontend.com";
+
+    // 1. Exchange authorization code for tokens
+    const tokenResponse = await axios.post("https://oauth2.googleapis.com/token", {
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code",
+    });
+
+    const { access_token } = tokenResponse.data;
+
+    // 2. Fetch user profile data
+    const userInfoResponse = await axios.get("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+
+    const { email, name, picture } = userInfoResponse.data;
+
+    // 3. Find or Create User (Modular logic)
+    const user = await findOrCreateGoogleUser({ email, name, picture });
+
+    // 4. Generate JWT (Modular logic)
+    const token = generateAuthToken(user);
+
+    // 5. Redirect to frontend with token
+    return res.redirect(`${frontendUrl}/auth/success?token=${token}`);
+
+  } catch (err: any) {
+    console.error("Google Auth Callback Error:", err?.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to authenticate with Google" });
+  }
+}

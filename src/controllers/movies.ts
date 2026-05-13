@@ -705,7 +705,6 @@ export async function getAllMovies(req: Request, res: Response) {
         where,
         skip,
         take: limitNum,
-        orderBy: { createdAt: "desc" },
         include: {
           vj: {
             select: {
@@ -732,8 +731,11 @@ export async function getAllMovies(req: Request, res: Response) {
       db.movie.count({ where }),
     ]);
 
+    // Shuffle the results for randomness on every reload
+    const shuffled = movies.sort(() => Math.random() - 0.5);
+
     return res.status(200).json({
-      data: serializeBigInt(movies),
+      data: serializeBigInt(shuffled),
       error: null,
       pagination: {
         total,

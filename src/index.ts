@@ -25,6 +25,8 @@ import dashboardRouter from "./routes/dashboard";
 import adminRouter from "./routes/admin";
 import metadataRouter from "./routes/metadata.routes";
 import streamRouter from "./routes/stream";
+import commentRouter from "./routes/comments";
+import downloadRouter from "./routes/downloads";
 
 const cors = require("cors");
 const app = express();
@@ -67,6 +69,8 @@ app.use("/api/v1", dashboardRouter);
 app.use("/api/v1", adminRouter);
 app.use("/api/v1", metadataRouter);
 app.use("/api/v1", streamRouter);
+app.use("/api/v1", commentRouter);
+app.use("/api/v1", downloadRouter);
 
 
 

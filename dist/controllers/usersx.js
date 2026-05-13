@@ -37,6 +37,7 @@ function getUserById(req, res) {
                     status: true,
                     currentPlan: true,
                     planExpiresAt: true,
+                    isExempt: true,
                     createdAt: true,
                 },
             });

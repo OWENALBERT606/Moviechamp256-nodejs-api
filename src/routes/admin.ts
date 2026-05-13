@@ -4,6 +4,7 @@ import {
   getUserByIdAdmin,
   updateUserStatus,
   updateUserRole,
+  updateUserExemption,
   deleteUserAdmin,
   getAllPayments,
   getAllSubscriptions,
@@ -19,6 +20,7 @@ adminRouter.get("/admin/users", getAllUsers);
 adminRouter.get("/admin/users/:userId", getUserByIdAdmin);
 adminRouter.patch("/admin/users/:userId/status", updateUserStatus);
 adminRouter.patch("/admin/users/:userId/role", updateUserRole);
+adminRouter.patch("/admin/users/:userId/exempt", updateUserExemption);
 adminRouter.delete("/admin/users/:userId", deleteUserAdmin);
 
 // Payments management

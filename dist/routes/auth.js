@@ -7,4 +7,6 @@ authRouter.post("/auth/forgot-password", auth_1.forgotPassword);
 authRouter.post("/auth/reset-password", auth_1.resetPassword);
 authRouter.post("/auth/verify-email", auth_1.verifyEmail);
 authRouter.post("/auth/resend-verification", auth_1.resendVerification);
+authRouter.post("/auth/google", auth_1.googleAuth);
+authRouter.get("/auth/google/callback", auth_1.googleAuthCallback);
 exports.default = authRouter;
