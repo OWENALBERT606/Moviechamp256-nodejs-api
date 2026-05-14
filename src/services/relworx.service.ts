@@ -1,17 +1,23 @@
 import axios from "axios";
 
 const BASE_URL = process.env.RELWORX_BASE_URL || "https://payments.relworx.com/api";
-const API_KEY = process.env.RELWORX_API_KEY!;
-const ACCOUNT_NO = process.env.RELWORX_ACCOUNT_NO!;
 
 const client = axios.create({
   baseURL: BASE_URL,
   headers: {
     "Content-Type": "application/json",
     Accept: "application/vnd.relworx.v2",
-    Authorization: `Bearer ${API_KEY}`,
   },
   timeout: 30000,
+});
+
+// Use interceptor to always use latest API key from env
+client.interceptors.request.use((config) => {
+  const apiKey = process.env.RELWORX_API_KEY;
+  if (apiKey) {
+    config.headers.Authorization = `Bearer ${apiKey}`;
+  }
+  return config;
 });
 
 /* Normalise any UG phone number format to +256XXXXXXXXX
@@ -60,15 +66,30 @@ export interface RelworxPaymentResponse {
 export async function requestPayment(
   params: RequestPaymentParams
 ): Promise<RelworxPaymentResponse> {
-  const { data } = await client.post("/mobile-money/request-payment", {
-    account_no: ACCOUNT_NO,
-    reference: params.reference,
-    msisdn: normalizeMsisdn(params.msisdn),
-    currency: "UGX",
-    amount: params.amount,
-    description: params.description || "FlickerPlay subscription payment",
-  });
-  return data;
+  const accountNo = process.env.RELWORX_ACCOUNT_NO;
+  try {
+    const { data } = await client.post("/mobile-money/request-payment", {
+      account_no: accountNo,
+      reference: params.reference,
+      msisdn: normalizeMsisdn(params.msisdn),
+      currency: "UGX",
+      amount: params.amount,
+      description: params.description || "FlickerPlay subscription payment",
+    });
+    return data;
+  } catch (error: any) {
+    const errorMsg = error?.response?.data?.message || error.message;
+    console.error("Relworx Payment Request Error:", {
+      status: error?.response?.status,
+      message: errorMsg,
+      data: error?.response?.data,
+    });
+    return {
+      success: false,
+      message: errorMsg,
+      internal_reference: "",
+    };
+  }
 }
 
 /* ── Validate phone number ── */
@@ -81,10 +102,18 @@ export interface ValidatePhoneResponse {
 export async function validatePhone(
   msisdn: string
 ): Promise<ValidatePhoneResponse> {
-  const { data } = await client.post("/mobile-money/validate", {
-    msisdn: normalizeMsisdn(msisdn),
-  });
-  return data;
+  try {
+    const { data } = await client.post("/mobile-money/validate", {
+      msisdn: normalizeMsisdn(msisdn),
+    });
+    return data;
+  } catch (error: any) {
+    console.error("Relworx Validation Error:", error?.response?.data || error.message);
+    return {
+      success: false,
+      message: error?.response?.data?.message || "Phone validation failed",
+    };
+  }
 }
 
 /* ── Check wallet balance ── */
@@ -93,10 +122,16 @@ export async function checkWalletBalance(): Promise<{
   balance?: number;
   currency?: string;
 }> {
-  const { data } = await client.get("/mobile-money/check-wallet-balance", {
-    params: { account_no: ACCOUNT_NO, currency: "UGX" },
-  });
-  return data;
+  const accountNo = process.env.RELWORX_ACCOUNT_NO;
+  try {
+    const { data } = await client.get("/mobile-money/check-wallet-balance", {
+      params: { account_no: accountNo, currency: "UGX" },
+    });
+    return data;
+  } catch (error: any) {
+    console.error("Relworx Balance Error:", error?.response?.data || error.message);
+    return { success: false };
+  }
 }
 
 /* ── Get transactions list (used to poll status) ── */
@@ -112,10 +147,16 @@ export interface RelworxTransaction {
 }
 
 export async function getTransactions(): Promise<RelworxTransaction[]> {
-  const { data } = await client.get("/payment-requests/transactions", {
-    params: { account_no: ACCOUNT_NO },
-  });
-  return data?.transactions ?? [];
+  const accountNo = process.env.RELWORX_ACCOUNT_NO;
+  try {
+    const { data } = await client.get("/payment-requests/transactions", {
+      params: { account_no: accountNo },
+    });
+    return data?.transactions ?? [];
+  } catch (error: any) {
+    console.error("Relworx Transactions Error:", error?.response?.data || error.message);
+    return [];
+  }
 }
 
 /* ── Look up a single transaction by our reference ── */

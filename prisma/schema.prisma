@@ -455,6 +455,7 @@ model MyListSeries {
 enum SubscriptionPlan {
   DAILY
   WEEKLY
+  TWO_WEEKS
   MONTHLY
   QUARTERLY
   SEMI_ANNUAL

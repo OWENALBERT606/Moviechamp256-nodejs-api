@@ -26,6 +26,7 @@ function calculateEndDate(planId) {
     const durations = {
         daily: 1,
         weekly: 7,
+        two_weeks: 14,
         monthly: 30,
         quarterly: 90,
         semiannual: 180,
@@ -40,6 +41,7 @@ function getPlanEnum(planId) {
     const mapping = {
         daily: "DAILY",
         weekly: "WEEKLY",
+        two_weeks: "TWO_WEEKS",
         monthly: "MONTHLY",
         quarterly: "QUARTERLY",
         semiannual: "SEMI_ANNUAL",
@@ -90,30 +92,41 @@ function processMobileMoneyPayment(req, res) {
             }
             catch (_g) {
             }
-            const payment = yield db_1.db.payment.create({
-                data: {
-                    userId,
-                    amount,
-                    currency: "UGX",
-                    paymentMethod: "MOBILE_MONEY",
-                    status: "PENDING",
-                    phoneNumber: msisdn,
-                },
-            });
-            const subscription = yield db_1.db.subscription.create({
-                data: {
-                    userId,
-                    plan: getPlanEnum(planId),
-                    status: "PENDING",
-                    amount,
-                    currency: "UGX",
-                    endDate: calculateEndDate(planId),
-                },
-            });
-            yield db_1.db.payment.update({
-                where: { id: payment.id },
-                data: { subscriptionId: subscription.id },
-            });
+            let payment;
+            let subscription;
+            try {
+                payment = yield db_1.db.payment.create({
+                    data: {
+                        userId,
+                        amount,
+                        currency: "UGX",
+                        paymentMethod: "MOBILE_MONEY",
+                        status: "PENDING",
+                        phoneNumber: msisdn,
+                    },
+                });
+                subscription = yield db_1.db.subscription.create({
+                    data: {
+                        userId,
+                        plan: getPlanEnum(planId),
+                        status: "PENDING",
+                        amount,
+                        currency: "UGX",
+                        endDate: calculateEndDate(planId),
+                    },
+                });
+                yield db_1.db.payment.update({
+                    where: { id: payment.id },
+                    data: { subscriptionId: subscription.id },
+                });
+            }
+            catch (dbError) {
+                console.error("Database connection error during payment creation:", dbError);
+                return res.status(503).json({
+                    data: null,
+                    error: "Database is currently unreachable. Please try again in a few seconds (it might be waking up).",
+                });
+            }
             const relworxRes = yield (0, relworx_service_1.requestPayment)({
                 reference: payment.id,
                 msisdn,

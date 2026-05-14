@@ -20,16 +20,20 @@ exports.getTransactions = getTransactions;
 exports.getTransactionByReference = getTransactionByReference;
 const axios_1 = __importDefault(require("axios"));
 const BASE_URL = process.env.RELWORX_BASE_URL || "https://payments.relworx.com/api";
-const API_KEY = process.env.RELWORX_API_KEY;
-const ACCOUNT_NO = process.env.RELWORX_ACCOUNT_NO;
 const client = axios_1.default.create({
     baseURL: BASE_URL,
     headers: {
         "Content-Type": "application/json",
         Accept: "application/vnd.relworx.v2",
-        Authorization: `Bearer ${API_KEY}`,
     },
     timeout: 30000,
+});
+client.interceptors.request.use((config) => {
+    const apiKey = process.env.RELWORX_API_KEY;
+    if (apiKey) {
+        config.headers.Authorization = `Bearer ${apiKey}`;
+    }
+    return config;
 });
 function normalizeMsisdn(raw) {
     let digits = raw.replace(/\D/g, "");
@@ -50,40 +54,82 @@ function normalizeMsisdn(raw) {
 }
 function requestPayment(params) {
     return __awaiter(this, void 0, void 0, function* () {
-        const { data } = yield client.post("/mobile-money/request-payment", {
-            account_no: ACCOUNT_NO,
-            reference: params.reference,
-            msisdn: normalizeMsisdn(params.msisdn),
-            currency: "UGX",
-            amount: params.amount,
-            description: params.description || "FlickerPlay subscription payment",
-        });
-        return data;
+        var _a, _b, _c, _d;
+        const accountNo = process.env.RELWORX_ACCOUNT_NO;
+        try {
+            const { data } = yield client.post("/mobile-money/request-payment", {
+                account_no: accountNo,
+                reference: params.reference,
+                msisdn: normalizeMsisdn(params.msisdn),
+                currency: "UGX",
+                amount: params.amount,
+                description: params.description || "FlickerPlay subscription payment",
+            });
+            return data;
+        }
+        catch (error) {
+            const errorMsg = ((_b = (_a = error === null || error === void 0 ? void 0 : error.response) === null || _a === void 0 ? void 0 : _a.data) === null || _b === void 0 ? void 0 : _b.message) || error.message;
+            console.error("Relworx Payment Request Error:", {
+                status: (_c = error === null || error === void 0 ? void 0 : error.response) === null || _c === void 0 ? void 0 : _c.status,
+                message: errorMsg,
+                data: (_d = error === null || error === void 0 ? void 0 : error.response) === null || _d === void 0 ? void 0 : _d.data,
+            });
+            return {
+                success: false,
+                message: errorMsg,
+                internal_reference: "",
+            };
+        }
     });
 }
 function validatePhone(msisdn) {
     return __awaiter(this, void 0, void 0, function* () {
-        const { data } = yield client.post("/mobile-money/validate", {
-            msisdn: normalizeMsisdn(msisdn),
-        });
-        return data;
+        var _a, _b, _c;
+        try {
+            const { data } = yield client.post("/mobile-money/validate", {
+                msisdn: normalizeMsisdn(msisdn),
+            });
+            return data;
+        }
+        catch (error) {
+            console.error("Relworx Validation Error:", ((_a = error === null || error === void 0 ? void 0 : error.response) === null || _a === void 0 ? void 0 : _a.data) || error.message);
+            return {
+                success: false,
+                message: ((_c = (_b = error === null || error === void 0 ? void 0 : error.response) === null || _b === void 0 ? void 0 : _b.data) === null || _c === void 0 ? void 0 : _c.message) || "Phone validation failed",
+            };
+        }
     });
 }
 function checkWalletBalance() {
     return __awaiter(this, void 0, void 0, function* () {
-        const { data } = yield client.get("/mobile-money/check-wallet-balance", {
-            params: { account_no: ACCOUNT_NO, currency: "UGX" },
-        });
-        return data;
+        var _a;
+        const accountNo = process.env.RELWORX_ACCOUNT_NO;
+        try {
+            const { data } = yield client.get("/mobile-money/check-wallet-balance", {
+                params: { account_no: accountNo, currency: "UGX" },
+            });
+            return data;
+        }
+        catch (error) {
+            console.error("Relworx Balance Error:", ((_a = error === null || error === void 0 ? void 0 : error.response) === null || _a === void 0 ? void 0 : _a.data) || error.message);
+            return { success: false };
+        }
     });
 }
 function getTransactions() {
     return __awaiter(this, void 0, void 0, function* () {
-        var _a;
-        const { data } = yield client.get("/payment-requests/transactions", {
-            params: { account_no: ACCOUNT_NO },
-        });
-        return (_a = data === null || data === void 0 ? void 0 : data.transactions) !== null && _a !== void 0 ? _a : [];
+        var _a, _b;
+        const accountNo = process.env.RELWORX_ACCOUNT_NO;
+        try {
+            const { data } = yield client.get("/payment-requests/transactions", {
+                params: { account_no: accountNo },
+            });
+            return (_a = data === null || data === void 0 ? void 0 : data.transactions) !== null && _a !== void 0 ? _a : [];
+        }
+        catch (error) {
+            console.error("Relworx Transactions Error:", ((_b = error === null || error === void 0 ? void 0 : error.response) === null || _b === void 0 ? void 0 : _b.data) || error.message);
+            return [];
+        }
     });
 }
 function getTransactionByReference(reference) {

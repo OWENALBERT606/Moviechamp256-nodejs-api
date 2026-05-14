@@ -14,6 +14,7 @@ function calculateEndDate(planId: string): Date {
   const durations: Record<string, number> = {
     daily: 1,
     weekly: 7,
+    two_weeks: 14,
     monthly: 30,
     quarterly: 90,
     semiannual: 180,
@@ -28,6 +29,7 @@ function getPlanEnum(planId: string): any {
   const mapping: Record<string, string> = {
     daily: "DAILY",
     weekly: "WEEKLY",
+    two_weeks: "TWO_WEEKS",
     monthly: "MONTHLY",
     quarterly: "QUARTERLY",
     semiannual: "SEMI_ANNUAL",
@@ -99,35 +101,47 @@ export async function processMobileMoneyPayment(req: Request, res: Response) {
       // Validation endpoint failure is non-fatal — continue
     }
 
-    // Create pending payment record first so we have an ID for the reference
-    const payment = await db.payment.create({
-      data: {
-        userId,
-        amount,
-        currency: "UGX",
-        paymentMethod: "MOBILE_MONEY",
-        status: "PENDING",
-        phoneNumber: msisdn,
-      },
-    });
+    // Create pending records
+    let payment;
+    let subscription;
 
-    // Create pending subscription
-    const subscription = await db.subscription.create({
-      data: {
-        userId,
-        plan: getPlanEnum(planId),
-        status: "PENDING",
-        amount,
-        currency: "UGX",
-        endDate: calculateEndDate(planId),
-      },
-    });
+    try {
+      // Create pending payment record first so we have an ID for the reference
+      payment = await db.payment.create({
+        data: {
+          userId,
+          amount,
+          currency: "UGX",
+          paymentMethod: "MOBILE_MONEY",
+          status: "PENDING",
+          phoneNumber: msisdn,
+        },
+      });
 
-    // Link them together
-    await db.payment.update({
-      where: { id: payment.id },
-      data: { subscriptionId: subscription.id },
-    });
+      // Create pending subscription
+      subscription = await db.subscription.create({
+        data: {
+          userId,
+          plan: getPlanEnum(planId),
+          status: "PENDING",
+          amount,
+          currency: "UGX",
+          endDate: calculateEndDate(planId),
+        },
+      });
+
+      // Link them together
+      await db.payment.update({
+        where: { id: payment.id },
+        data: { subscriptionId: subscription.id },
+      });
+    } catch (dbError: any) {
+      console.error("Database connection error during payment creation:", dbError);
+      return res.status(503).json({
+        data: null,
+        error: "Database is currently unreachable. Please try again in a few seconds (it might be waking up).",
+      });
+    }
 
     // Send STK push via Relworx (payment.id is the unique reference)
     const relworxRes = await requestPayment({
