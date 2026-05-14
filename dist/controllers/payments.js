@@ -29,6 +29,7 @@ function calculateEndDate(planId) {
         weekly: 7,
         two_weeks: 14,
         monthly: 30,
+        two_months: 60,
         quarterly: 90,
         semiannual: 180,
         annual: 365,
@@ -84,9 +85,16 @@ function processMobileMoneyPayment(req, res) {
         if (!userId || !planId || !amount || !phoneNumber) {
             return res.status(400).json({ data: null, error: "Missing required fields" });
         }
-        if (planId === "test") {
+        if (planId === "test")
             amount = 100;
-        }
+        if (planId === "daily")
+            amount = 1000;
+        if (planId === "weekly")
+            amount = 2500;
+        if (planId === "two_weeks")
+            amount = 3500;
+        if (planId === "monthly")
+            amount = 6000;
         try {
             const msisdn = (0, relworx_service_1.normalizeMsisdn)(phoneNumber);
             let customerName;
