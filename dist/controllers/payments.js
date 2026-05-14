@@ -125,7 +125,7 @@ function processMobileMoneyPayment(req, res) {
                             userId,
                             plan: getPlanEnum(planId),
                             status: "PENDING",
-                            amount,
+                            amount: Number(amount),
                             currency: "UGX",
                             endDate: calculateEndDate(planId),
                         },
@@ -134,7 +134,7 @@ function processMobileMoneyPayment(req, res) {
                         data: {
                             userId,
                             subscriptionId: sub.id,
-                            amount,
+                            amount: Number(amount),
                             currency: "UGX",
                             paymentMethod: "MOBILE_MONEY",
                             status: "PENDING",
@@ -142,7 +142,9 @@ function processMobileMoneyPayment(req, res) {
                         },
                     });
                     return { sub, pay };
-                }));
+                }), {
+                    timeout: 15000
+                });
                 subscription = result.sub;
                 payment = result.pay;
             }
@@ -150,7 +152,7 @@ function processMobileMoneyPayment(req, res) {
                 console.error("Payment creation transaction failed:", dbError);
                 return res.status(500).json({
                     data: null,
-                    error: "Failed to initialize payment record. Please try again.",
+                    error: `Failed to initialize payment record: ${dbError.message || 'Unknown database error'}`,
                 });
             }
             const relworxRes = yield (0, relworx_service_1.requestPayment)({

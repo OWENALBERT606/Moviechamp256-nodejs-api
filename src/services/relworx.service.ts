@@ -22,37 +22,34 @@ client.interceptors.request.use((config) => {
 
 /* Normalise any UG phone number format to 256XXXXXXXXX (Relworx preferred format)
    Handles: +256XXXXXXXXX, 256XXXXXXXXX, 0XXXXXXXXX, XXXXXXXXX, 00256XXXXXXXXX */
+/* Normalise any UG phone number to Relworx international format: +256XXXXXXXXX */
 export function normalizeMsisdn(raw: string): string {
-  // Strip everything except digits
   let digits = raw.replace(/\D/g, "");
 
-  // Strip international dialing prefix (00)
   if (digits.startsWith("00")) digits = digits.slice(2);
 
-  // Already has Uganda country code → extract the 9-digit local part
+  // Already has country code 256XXXXXXXXX
   if (digits.startsWith("256")) {
     const local = digits.slice(3);
-    if (local.length === 9) return `256${local}`;
-    // Malformed but try anyway
-    return `256${local}`;
+    if (local.length === 9 && !local.startsWith("0")) return `+256${local}`;
+    // 256 + 0XXXXXXXXX (extra leading zero) — strip it
+    if (local.startsWith("0") && local.length === 10) return `+256${local.slice(1)}`;
+    return `+256${local}`;
   }
 
-  // Local format with leading zero (e.g. 0701234567)
-  if (digits.startsWith("0") && digits.length >= 10) {
-    return `256${digits.slice(1)}`;
-  }
+  // Local format 0XXXXXXXXX (exactly 10 digits)
+  if (digits.startsWith("0") && digits.length === 10) return `+256${digits.slice(1)}`;
 
-  // Bare 9-digit local number (e.g. 701234567)
-  if (digits.length === 9) return `256${digits}`;
+  // Bare 9-digit local number XXXXXXXXX (must not start with 0)
+  if (digits.length === 9 && !digits.startsWith("0")) return `+256${digits}`;
 
-  // Fallback — return as-is
   return digits;
 }
 
 /* ── Request payment (collect from customer) ── */
 export interface RequestPaymentParams {
-  reference: string;   // our internal payment ID
-  msisdn: string;      // customer phone
+  reference: string;
+  msisdn: string;
   amount: number;
   description?: string;
 }
@@ -68,22 +65,21 @@ export async function requestPayment(
 ): Promise<RelworxPaymentResponse> {
   const accountNo = process.env.RELWORX_ACCOUNT_NO;
   try {
-    const { data } = await client.post("/mobile-money/request-payment", {
+    const payload: Record<string, any> = {
       account_no: accountNo,
       reference: params.reference,
       msisdn: normalizeMsisdn(params.msisdn),
       currency: "UGX",
       amount: params.amount,
       description: params.description || "FlickerPlay subscription payment",
-    });
+    };
+    console.log("[Relworx request-payment] →", JSON.stringify(payload));
+    const { data } = await client.post("/mobile-money/request-payment", payload);
+    console.log("[Relworx request-payment] ←", JSON.stringify(data));
     return data;
   } catch (error: any) {
     const errorMsg = error?.response?.data?.message || error.message;
-    console.error("Relworx Payment Request Error:", {
-      status: error?.response?.status,
-      message: errorMsg,
-      data: error?.response?.data,
-    });
+    console.error("[Relworx request-payment] ← error", error?.response?.status, JSON.stringify(error?.response?.data));
     return {
       success: false,
       message: errorMsg,
@@ -99,21 +95,20 @@ export interface ValidatePhoneResponse {
   customer_name?: string;
 }
 
-export async function validatePhone(
-  msisdn: string
-): Promise<ValidatePhoneResponse> {
-  const accountNo = process.env.RELWORX_ACCOUNT_NO;
+export async function validatePhone(msisdn: string): Promise<ValidatePhoneResponse> {
+  const normalized = normalizeMsisdn(msisdn);
+  console.log("[Relworx validate] →", JSON.stringify({ msisdn: normalized }));
   try {
-    const { data } = await client.post("/mobile-money/validate", {
-      account_no: accountNo,
-      msisdn: normalizeMsisdn(msisdn),
-    });
+    const { data } = await client.post("/mobile-money/validate", { msisdn: normalized });
+    console.log("[Relworx validate] ←", JSON.stringify(data));
     return data;
   } catch (error: any) {
-    console.error("Relworx Validation Error:", error?.response?.data || error.message);
-    // Re-throw if it's an API error (not a 200 with success:false)
-    // This allows the controller to return a 500 status code
-    throw error;
+    const body = error?.response?.data;
+    console.error("[Relworx validate] ← error", error?.response?.status, JSON.stringify(body));
+    return {
+      success: false,
+      message: body?.message || error.message || "Validation failed",
+    };
   }
 }
 

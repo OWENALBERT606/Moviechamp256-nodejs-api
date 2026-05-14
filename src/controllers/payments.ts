@@ -91,7 +91,7 @@ export async function processMobileMoneyPayment(req: Request, res: Response) {
   }
 
   // Force correct amount for the test plan
-  if (planId === "test") amount = 100;
+  if (planId === "test") amount = 500;
   if (planId === "daily") amount = 1000;
   if (planId === "weekly") amount = 2500;
   if (planId === "two_weeks") amount = 3500;
@@ -130,7 +130,7 @@ export async function processMobileMoneyPayment(req: Request, res: Response) {
             userId,
             plan: getPlanEnum(planId),
             status: "PENDING",
-            amount,
+            amount: Number(amount),
             currency: "UGX",
             endDate: calculateEndDate(planId),
           },
@@ -141,7 +141,7 @@ export async function processMobileMoneyPayment(req: Request, res: Response) {
           data: {
             userId,
             subscriptionId: sub.id,
-            amount,
+            amount: Number(amount),
             currency: "UGX",
             paymentMethod: "MOBILE_MONEY",
             status: "PENDING",
@@ -150,6 +150,8 @@ export async function processMobileMoneyPayment(req: Request, res: Response) {
         });
 
         return { sub, pay };
+      }, {
+        timeout: 15000 // 15 seconds timeout
       });
 
       subscription = result.sub;
@@ -158,7 +160,7 @@ export async function processMobileMoneyPayment(req: Request, res: Response) {
       console.error("Payment creation transaction failed:", dbError);
       return res.status(500).json({
         data: null,
-        error: "Failed to initialize payment record. Please try again.",
+        error: `Failed to initialize payment record: ${dbError.message || 'Unknown database error'}`,
       });
     }
 
@@ -223,11 +225,11 @@ export async function validateMobileMoneyPhone(req: Request, res: Response) {
   try {
     const result = await validatePhone(phoneNumber);
     return res.status(200).json({
-      data: { valid: result.success, customerName: result.customer_name },
+      data: { valid: result.success, customerName: result.customer_name ?? null },
       error: null,
     });
-  } catch (error: any) {
-    return res.status(500).json({ data: null, error: "Phone validation failed" });
+  } catch {
+    return res.status(200).json({ data: { valid: null, customerName: null }, error: null });
   }
 }
 
