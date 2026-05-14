@@ -253,20 +253,26 @@ export async function deleteUserAdmin(req: Request, res: Response) {
   const { userId } = req.params;
 
   try {
-    await db.user.delete({
-      where: { id: userId },
-    });
+    // Hard delete — remove all related records first to satisfy FK constraints
+    await db.$transaction([
+      db.watchEvent.deleteMany({ where: { userId } }),
+      db.watchHistory.deleteMany({ where: { userId } }),
+      db.downloadEvent.deleteMany({ where: { userId } }),
+      db.passwordResetToken.deleteMany({ where: { userId } }),
+      db.session.deleteMany({ where: { userId } }),
+      db.account.deleteMany({ where: { userId } }),
+      db.comment.deleteMany({ where: { userId } }),
+      db.refreshToken.deleteMany({ where: { userId } }),
+      db.myList.deleteMany({ where: { userId } }),
+      db.payment.deleteMany({ where: { userId } }),
+      db.subscription.deleteMany({ where: { userId } }),
+      db.user.delete({ where: { id: userId } }),
+    ]);
 
-    return res.status(200).json({
-      data: null,
-      message: "User deleted successfully",
-    });
+    return res.status(200).json({ data: null, message: "User deleted successfully" });
   } catch (error) {
     console.error("Error deleting user:", error);
-    return res.status(500).json({
-      data: null,
-      error: "Failed to delete user",
-    });
+    return res.status(500).json({ data: null, error: "Failed to delete user" });
   }
 }
 
