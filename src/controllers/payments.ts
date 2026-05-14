@@ -96,6 +96,9 @@ export async function processMobileMoneyPayment(req: Request, res: Response) {
   if (planId === "weekly") amount = 2500;
   if (planId === "two_weeks") amount = 3500;
   if (planId === "monthly") amount = 6000;
+  if (planId === "quarterly") amount = 15000;
+  if (planId === "semiannual") amount = 25000;
+  if (planId === "annual") amount = 45000;
 
   try {
     const msisdn = normalizeMsisdn(phoneNumber);
@@ -115,45 +118,47 @@ export async function processMobileMoneyPayment(req: Request, res: Response) {
       // Validation endpoint failure is non-fatal — continue
     }
 
-    // Create pending records
+    // Create pending records with transaction
     let payment;
     let subscription;
 
     try {
-      // Create pending payment record first so we have an ID for the reference
-      payment = await db.payment.create({
-        data: {
-          userId,
-          amount,
-          currency: "UGX",
-          paymentMethod: "MOBILE_MONEY",
-          status: "PENDING",
-          phoneNumber: msisdn,
-        },
+      const result = await db.$transaction(async (tx) => {
+        // Create pending subscription
+        const sub = await tx.subscription.create({
+          data: {
+            userId,
+            plan: getPlanEnum(planId),
+            status: "PENDING",
+            amount,
+            currency: "UGX",
+            endDate: calculateEndDate(planId),
+          },
+        });
+
+        // Create pending payment record
+        const pay = await tx.payment.create({
+          data: {
+            userId,
+            subscriptionId: sub.id,
+            amount,
+            currency: "UGX",
+            paymentMethod: "MOBILE_MONEY",
+            status: "PENDING",
+            phoneNumber: msisdn,
+          },
+        });
+
+        return { sub, pay };
       });
 
-      // Create pending subscription
-      subscription = await db.subscription.create({
-        data: {
-          userId,
-          plan: getPlanEnum(planId),
-          status: "PENDING",
-          amount,
-          currency: "UGX",
-          endDate: calculateEndDate(planId),
-        },
-      });
-
-      // Link them together
-      await db.payment.update({
-        where: { id: payment.id },
-        data: { subscriptionId: subscription.id },
-      });
+      subscription = result.sub;
+      payment = result.pay;
     } catch (dbError: any) {
-      console.error("Database connection error during payment creation:", dbError);
-      return res.status(503).json({
+      console.error("Payment creation transaction failed:", dbError);
+      return res.status(500).json({
         data: null,
-        error: "Database is currently unreachable. Please try again in a few seconds (it might be waking up).",
+        error: "Failed to initialize payment record. Please try again.",
       });
     }
 

@@ -95,6 +95,12 @@ function processMobileMoneyPayment(req, res) {
             amount = 3500;
         if (planId === "monthly")
             amount = 6000;
+        if (planId === "quarterly")
+            amount = 15000;
+        if (planId === "semiannual")
+            amount = 25000;
+        if (planId === "annual")
+            amount = 45000;
         try {
             const msisdn = (0, relworx_service_1.normalizeMsisdn)(phoneNumber);
             let customerName;
@@ -113,36 +119,38 @@ function processMobileMoneyPayment(req, res) {
             let payment;
             let subscription;
             try {
-                payment = yield db_1.db.payment.create({
-                    data: {
-                        userId,
-                        amount,
-                        currency: "UGX",
-                        paymentMethod: "MOBILE_MONEY",
-                        status: "PENDING",
-                        phoneNumber: msisdn,
-                    },
-                });
-                subscription = yield db_1.db.subscription.create({
-                    data: {
-                        userId,
-                        plan: getPlanEnum(planId),
-                        status: "PENDING",
-                        amount,
-                        currency: "UGX",
-                        endDate: calculateEndDate(planId),
-                    },
-                });
-                yield db_1.db.payment.update({
-                    where: { id: payment.id },
-                    data: { subscriptionId: subscription.id },
-                });
+                const result = yield db_1.db.$transaction((tx) => __awaiter(this, void 0, void 0, function* () {
+                    const sub = yield tx.subscription.create({
+                        data: {
+                            userId,
+                            plan: getPlanEnum(planId),
+                            status: "PENDING",
+                            amount,
+                            currency: "UGX",
+                            endDate: calculateEndDate(planId),
+                        },
+                    });
+                    const pay = yield tx.payment.create({
+                        data: {
+                            userId,
+                            subscriptionId: sub.id,
+                            amount,
+                            currency: "UGX",
+                            paymentMethod: "MOBILE_MONEY",
+                            status: "PENDING",
+                            phoneNumber: msisdn,
+                        },
+                    });
+                    return { sub, pay };
+                }));
+                subscription = result.sub;
+                payment = result.pay;
             }
             catch (dbError) {
-                console.error("Database connection error during payment creation:", dbError);
-                return res.status(503).json({
+                console.error("Payment creation transaction failed:", dbError);
+                return res.status(500).json({
                     data: null,
-                    error: "Database is currently unreachable. Please try again in a few seconds (it might be waking up).",
+                    error: "Failed to initialize payment record. Please try again.",
                 });
             }
             const relworxRes = yield (0, relworx_service_1.requestPayment)({
