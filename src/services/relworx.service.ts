@@ -20,7 +20,7 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
-/* Normalise any UG phone number format to +256XXXXXXXXX
+/* Normalise any UG phone number format to 256XXXXXXXXX (Relworx preferred format)
    Handles: +256XXXXXXXXX, 256XXXXXXXXX, 0XXXXXXXXX, XXXXXXXXX, 00256XXXXXXXXX */
 export function normalizeMsisdn(raw: string): string {
   // Strip everything except digits
@@ -32,21 +32,21 @@ export function normalizeMsisdn(raw: string): string {
   // Already has Uganda country code → extract the 9-digit local part
   if (digits.startsWith("256")) {
     const local = digits.slice(3);
-    if (local.length === 9) return `+256${local}`;
+    if (local.length === 9) return `256${local}`;
     // Malformed but try anyway
-    return `+256${local}`;
+    return `256${local}`;
   }
 
   // Local format with leading zero (e.g. 0701234567)
   if (digits.startsWith("0") && digits.length >= 10) {
-    return `+256${digits.slice(1)}`;
+    return `256${digits.slice(1)}`;
   }
 
   // Bare 9-digit local number (e.g. 701234567)
-  if (digits.length === 9) return `+256${digits}`;
+  if (digits.length === 9) return `256${digits}`;
 
-  // Fallback — return as-is with + prefix
-  return `+${digits}`;
+  // Fallback — return as-is
+  return digits;
 }
 
 /* ── Request payment (collect from customer) ── */
@@ -102,17 +102,18 @@ export interface ValidatePhoneResponse {
 export async function validatePhone(
   msisdn: string
 ): Promise<ValidatePhoneResponse> {
+  const accountNo = process.env.RELWORX_ACCOUNT_NO;
   try {
     const { data } = await client.post("/mobile-money/validate", {
+      account_no: accountNo,
       msisdn: normalizeMsisdn(msisdn),
     });
     return data;
   } catch (error: any) {
     console.error("Relworx Validation Error:", error?.response?.data || error.message);
-    return {
-      success: false,
-      message: error?.response?.data?.message || "Phone validation failed",
-    };
+    // Re-throw if it's an API error (not a 200 with success:false)
+    // This allows the controller to return a 500 status code
+    throw error;
   }
 }
 

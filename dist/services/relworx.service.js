@@ -42,15 +42,15 @@ function normalizeMsisdn(raw) {
     if (digits.startsWith("256")) {
         const local = digits.slice(3);
         if (local.length === 9)
-            return `+256${local}`;
-        return `+256${local}`;
+            return `256${local}`;
+        return `256${local}`;
     }
     if (digits.startsWith("0") && digits.length >= 10) {
-        return `+256${digits.slice(1)}`;
+        return `256${digits.slice(1)}`;
     }
     if (digits.length === 9)
-        return `+256${digits}`;
-    return `+${digits}`;
+        return `256${digits}`;
+    return digits;
 }
 function requestPayment(params) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -84,19 +84,18 @@ function requestPayment(params) {
 }
 function validatePhone(msisdn) {
     return __awaiter(this, void 0, void 0, function* () {
-        var _a, _b, _c;
+        var _a;
+        const accountNo = process.env.RELWORX_ACCOUNT_NO;
         try {
             const { data } = yield client.post("/mobile-money/validate", {
+                account_no: accountNo,
                 msisdn: normalizeMsisdn(msisdn),
             });
             return data;
         }
         catch (error) {
             console.error("Relworx Validation Error:", ((_a = error === null || error === void 0 ? void 0 : error.response) === null || _a === void 0 ? void 0 : _a.data) || error.message);
-            return {
-                success: false,
-                message: ((_c = (_b = error === null || error === void 0 ? void 0 : error.response) === null || _b === void 0 ? void 0 : _b.data) === null || _c === void 0 ? void 0 : _c.message) || "Phone validation failed",
-            };
+            throw error;
         }
     });
 }

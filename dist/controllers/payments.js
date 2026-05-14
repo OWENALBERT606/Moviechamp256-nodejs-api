@@ -103,7 +103,7 @@ function processMobileMoneyPayment(req, res) {
                 if (!validation.success) {
                     return res.status(400).json({
                         data: null,
-                        error: "Phone number is not valid for mobile money. Please check and try again.",
+                        error: validation.message || "Phone number is not registered for mobile money. Please check and try again.",
                     });
                 }
                 customerName = validation.customer_name;
