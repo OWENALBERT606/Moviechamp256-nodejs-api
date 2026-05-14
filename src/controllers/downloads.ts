@@ -27,32 +27,25 @@ export async function checkDownloadLimit(req: AuthRequest, res: Response) {
       return res.status(404).json({ data: null, error: "User not found" });
     }
 
-    // Check if user is on a paid plan and it's not expired
     const isPaidPlan = user.currentPlan && user.planExpiresAt && user.planExpiresAt > new Date();
-    
-    // If user is exempt or on a paid plan, they have unlimited downloads
-    if (user.isExempt || isPaidPlan) {
-      return res.status(200).json({ data: { canDownload: true }, error: null });
+
+    // Exempt users have unlimited downloads
+    if (user.isExempt) {
+      return res.status(200).json({ data: { canDownload: true, remainingDownloads: null, limit: null }, error: null });
     }
 
-    // Free tier: check downloads in the last 24 hours
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const dailyLimit = isPaidPlan ? 3 : 1;
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const downloadCount = await db.downloadEvent.count({
-      where: {
-        userId,
-        createdAt: {
-          gte: twentyFourHoursAgo,
-        },
-      },
+      where: { userId, createdAt: { gte: since } },
     });
-
-    const canDownload = downloadCount < 2;
 
     return res.status(200).json({
       data: {
-        canDownload,
-        remainingDownloads: Math.max(0, 2 - downloadCount),
-        limit: 2,
+        canDownload: downloadCount < dailyLimit,
+        remainingDownloads: Math.max(0, dailyLimit - downloadCount),
+        limit: dailyLimit,
+        isPaidPlan: !!isPaidPlan,
       },
       error: null,
     });
