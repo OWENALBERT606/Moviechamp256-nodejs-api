@@ -453,6 +453,7 @@ model MyListSeries {
 // Add to existing schema.prisma
 
 enum SubscriptionPlan {
+  TEST
   DAILY
   WEEKLY
   TWO_WEEKS

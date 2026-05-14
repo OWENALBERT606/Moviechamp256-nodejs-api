@@ -24,6 +24,7 @@ const relworx_service_1 = require("../services/relworx.service");
 function calculateEndDate(planId) {
     var _a;
     const durations = {
+        test: 0.04,
         daily: 1,
         weekly: 7,
         two_weeks: 14,
@@ -33,12 +34,18 @@ function calculateEndDate(planId) {
         annual: 365,
     };
     const end = new Date();
-    end.setDate(end.getDate() + ((_a = durations[planId]) !== null && _a !== void 0 ? _a : 30));
+    if (planId === "test") {
+        end.setHours(end.getHours() + 1);
+    }
+    else {
+        end.setDate(end.getDate() + ((_a = durations[planId]) !== null && _a !== void 0 ? _a : 30));
+    }
     return end;
 }
 function getPlanEnum(planId) {
     var _a;
     const mapping = {
+        test: "TEST",
         daily: "DAILY",
         weekly: "WEEKLY",
         two_weeks: "TWO_WEEKS",
@@ -73,9 +80,12 @@ function activateSubscription(paymentId, subscriptionId, userId, planId, provide
 function processMobileMoneyPayment(req, res) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a, _b, _c, _d, _e, _f;
-        const { userId, planId, amount, phoneNumber, provider } = req.body;
+        let { userId, planId, amount, phoneNumber, provider } = req.body;
         if (!userId || !planId || !amount || !phoneNumber) {
             return res.status(400).json({ data: null, error: "Missing required fields" });
+        }
+        if (planId === "test") {
+            amount = 100;
         }
         try {
             const msisdn = (0, relworx_service_1.normalizeMsisdn)(phoneNumber);

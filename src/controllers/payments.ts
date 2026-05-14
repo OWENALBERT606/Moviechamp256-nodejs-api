@@ -12,21 +12,28 @@ import {
 
 function calculateEndDate(planId: string): Date {
   const durations: Record<string, number> = {
+    test: 0.04, // ~1 hour (1/24)
     daily: 1,
     weekly: 7,
     two_weeks: 14,
     monthly: 30,
+    two_months: 60,
     quarterly: 90,
     semiannual: 180,
     annual: 365,
   };
   const end = new Date();
-  end.setDate(end.getDate() + (durations[planId] ?? 30));
+  if (planId === "test") {
+    end.setHours(end.getHours() + 1);
+  } else {
+    end.setDate(end.getDate() + (durations[planId] ?? 30));
+  }
   return end;
 }
 
 function getPlanEnum(planId: string): any {
   const mapping: Record<string, string> = {
+    test: "TEST",
     daily: "DAILY",
     weekly: "WEEKLY",
     two_weeks: "TWO_WEEKS",
@@ -77,11 +84,18 @@ async function activateSubscription(
    Sends a Relworx STK push to the customer's phone.
 ──────────────────────────────────────────────────────────── */
 export async function processMobileMoneyPayment(req: Request, res: Response) {
-  const { userId, planId, amount, phoneNumber, provider } = req.body;
+  let { userId, planId, amount, phoneNumber, provider } = req.body;
 
   if (!userId || !planId || !amount || !phoneNumber) {
     return res.status(400).json({ data: null, error: "Missing required fields" });
   }
+
+  // Force correct amount for the test plan
+  if (planId === "test") amount = 100;
+  if (planId === "daily") amount = 1000;
+  if (planId === "weekly") amount = 2500;
+  if (planId === "two_weeks") amount = 3500;
+  if (planId === "monthly") amount = 6000;
 
   try {
     const msisdn = normalizeMsisdn(phoneNumber);
